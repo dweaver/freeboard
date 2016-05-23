@@ -8,21 +8,20 @@ RUN apk add --update nginx git && \
 
 WORKDIR /app
 
-COPY package.json ./package.json
-
 # We want to use bower and grunt from the command line,
 # so need to install globally and not via package.json
 RUN npm install --global grunt-cli
 
+COPY package.json ./package.json
+
 # now install dependencies and build
-RUN npm -q install && \
-    grunt
+RUN npm -q install
 
 COPY . /app
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/mime.types /etc/nginx/mime.types
-RUN chmod -R 777 dist && \
-    rm -rf node_modules && \
+RUN grunt
+RUN rm -rf node_modules && \
     rm -rf tmp && \
     chmod 644 /etc/nginx/* && \
     mv * /var/www
