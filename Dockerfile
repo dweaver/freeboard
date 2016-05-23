@@ -10,6 +10,11 @@ WORKDIR /app
 
 COPY package.json ./package.json
 
+# We want to use bower and grunt from the command line,
+# so need to install globally and not via package.json
+RUN npm install --global grunt-cli
+
+# now install dependencies and build
 RUN npm -q install && \
     grunt
 
