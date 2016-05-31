@@ -1,6 +1,24 @@
 module.exports = function(grunt) {
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
+        env : {
+          dev_local: {
+            NODE_ENV : 'DEVELOPMENT_LOCAL'
+          },
+          dev_server: {
+            NODE_ENV : 'DEVELOPMENT_SERVER'
+          }
+        },
+        preprocess: {
+          dev_local: {
+            src: './index.tmpl.html',
+            dest: './index.html'
+          },
+          dev_server: {
+            src: './index.tmpl.html',
+            dest: './index.html'
+          }
+        },
         concat: {
             css: {
                 src: [
@@ -43,7 +61,8 @@ module.exports = function(grunt) {
 			},
             plugins : {
                 src : [
-                    'plugins/freeboard/*.js'
+                    'plugins/freeboard/*.js',
+                    'plugins/exosite/*.js'
                 ],
                 dest : 'js/freeboard.plugins.js'
             },
@@ -100,6 +119,14 @@ module.exports = function(grunt) {
                     }]
                 }
             }
+        },
+        watch: {
+          files: [ './index.tmpl.html', 'plugins/**/*.js', 'lib/**/*.js', 'img/**' ],
+          tasks: [ 'dev_server' ],
+          options: {
+            debounceDelay: 250,
+            reload: true
+          }
         }
     });
 
@@ -107,6 +134,17 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-cssmin');
+    grunt.loadNpmTasks('grunt-preprocess');
+    grunt.loadNpmTasks('grunt-env');
     grunt.loadNpmTasks('grunt-string-replace');
-    grunt.registerTask('default', [ 'concat:css', 'cssmin:css', 'concat:fb', 'concat:thirdparty', 'concat:plugins', 'concat:fb_plugins', 'uglify:fb', 'uglify:plugins', 'uglify:fb_plugins', 'uglify:thirdparty', 'string-replace:css' ]);
+
+    var base_tasks = [ 'concat:css', 'cssmin:css', 'concat:fb', 'concat:thirdparty', 'concat:plugins', 'concat:fb_plugins', 'uglify:fb', 'uglify:plugins', 'uglify:fb_plugins', 'uglify:thirdparty', 'string-replace:css' ];
+
+    var dev_local_tasks = ['env:dev_local', 'preprocess:dev_local'].concat(base_tasks.slice(0));
+    grunt.registerTask('dev_local', dev_local_tasks);
+
+    var dev_server_tasks = ['env:dev_server', 'preprocess:dev_server'].concat(base_tasks.slice(0));
+    grunt.registerTask('dev_server', dev_server_tasks);
+
+    grunt.registerTask('default', ['dev_local', 'watch']);
 };

@@ -56,7 +56,7 @@ DatasourceModel = function(theFreeboardModel, datasourcePlugins) {
 			}
 
 			// Do we need to load any external scripts?
-			if(datasourceType.external_scripts)
+			if(datasourceType.external_scripts && datasourceType.external_scripts.length > 0)
 			{
 				head.js(datasourceType.external_scripts.slice(0), finishLoad); // Need to clone the array because head.js adds some weird functions to it
 			}
@@ -2720,14 +2720,7 @@ var freeboard = (function()
 						{
 							if(options.type == 'datasource')
 							{
-								var newViewModel = new DatasourceModel(theFreeboardModel, datasourcePlugins);
-								theFreeboardModel.addDatasource(newViewModel);
-
-								newViewModel.name(newSettings.settings.name);
-								delete newSettings.settings.name;
-
-								newViewModel.settings(newSettings.settings);
-								newViewModel.type(newSettings.type);
+                freeboard.addDatasource(newSettings);
 							}
 							else if(options.type == 'widget')
 							{
@@ -3001,6 +2994,17 @@ var freeboard = (function()
 
             var combinedSettings = _.defaults(settings, datasource.settings());
             datasource.settings(combinedSettings);
+        },
+        addDatasource : function (newSettings)
+        {
+          var newViewModel = new DatasourceModel(theFreeboardModel, datasourcePlugins);
+          theFreeboardModel.addDatasource(newViewModel);
+
+          newViewModel.name(newSettings.settings.name);
+          delete newSettings.settings.name;
+
+          newViewModel.settings(newSettings.settings);
+          newViewModel.type(newSettings.type); 
         },
 		getStyleString      : function(name)
 		{

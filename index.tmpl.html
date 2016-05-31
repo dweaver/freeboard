@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- Dev Version links to full versions (non-minified) of javascript and css files -->
 <html>
 <head>
     <meta charset="UTF-8">
@@ -8,45 +7,93 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="viewport" content = "width = device-width, initial-scale = 1, user-scalable = no" />
-    <link href="lib/css/thirdparty/jquery.gridster.min.css" rel="stylesheet" />
-	<link href="lib/css/thirdparty/codemirror.css" rel="stylesheet" />
-	<link href="lib/css/thirdparty/codemirror-ambiance.css" rel="stylesheet" />
-    <link href="lib/css/freeboard/styles.css" rel="stylesheet" />
-    <script src="lib/js/thirdparty/head.js"></script>
+<!-- @if NODE_ENV == 'DEVELOPMENT_LOCAL' -->
+    <link href="css/freeboard.min.css" rel="stylesheet" />
+    <script src="js/freeboard.thirdparty.js"></script>
     <script type="text/javascript">
-        head.js("lib/js/thirdparty/knockout.js",
-                "lib/js/thirdparty/jquery.js",
-                "lib/js/thirdparty/jquery-ui.js",
-                "lib/js/thirdparty/underscore.js",
-                "lib/js/thirdparty/jquery.gridster.js",
-                "lib/js/thirdparty/jquery.caret.js",
-				"lib/js/thirdparty/codemirror.js",
-				"lib/js/thirdparty/jquery.xdomainrequest.js",
+        head.js("js/freeboard_plugins.js",
+        function() {
+<!-- @endif -->
+<!-- @if NODE_ENV == 'DEVELOPMENT_SERVER' -->
+    <link href="css/freeboard.min.css" rel="stylesheet" />
+    <script src="js/freeboard.thirdparty.min.js"></script>
+    <script src="js/freeboard.thirdparty.min.js"></script>
+    <script type="text/javascript">
+      head.js("js/freeboard_plugins.min.js",
+      function() {
+<!-- @endif -->
+        YETI_API_URL = 'https://biz-internal-api.exosite-dev.com';
+        YETI_UI_URL = 'https://iot.exosite-dev.com/business';
+        // *** Load more plugins here ***
+        $(function() { //DOM Ready
+            function getParameterByName(name) {
+              name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+              var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"), results = regex.exec(location.search);
+              return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+            }
 
-                "lib/js/freeboard/FreeboardModel.js",
-                "lib/js/freeboard/DatasourceModel.js",
-                "lib/js/freeboard/PaneModel.js",
-                "lib/js/freeboard/WidgetModel.js",
-                "lib/js/freeboard/FreeboardUI.js",
-                "lib/js/freeboard/DialogBox.js",
-                "lib/js/freeboard/PluginEditor.js",
-                "lib/js/freeboard/ValueEditor.js",
-                "lib/js/freeboard/JSEditor.js",
-                "lib/js/freeboard/DeveloperConsole.js",
-                "lib/js/freeboard/freeboard.js",
+            function initialize_freeboard(token) {
+              freeboard.initialize(true);
 
-                "plugins/freeboard/freeboard.datasources.js",
-                "plugins/freeboard/freeboard.widgets.js",
-                "examples/plugin_example.js",
+              // TODO: show an error if product and device are not defined
+              var product = getParameterByName('product') || 'qsn4ggiq04er8uxr';
+              var device = getParameterByName('device') || '00000002'; // '6468230c357716cfa34f1677a4d0b8475324506e';
+              console.log('product: ', product);
+              console.log('device: ', device);
 
-                // *** Load more plugins here ***
-                function(){
-                    $(function()
-                    { //DOM Ready
-						freeboard.setAssetRoot("/freeboard-ui/");
-                        freeboard.initialize(true);
+              murano.get_device_rid_by_identity(product, device, function(err, device_rid) {
+                // add freeboard datasources for each dataport
+                murano.get_device_dataports(product, device_rid, function(err, dataports) {
+                  console.log('err, dataports', err, dataports);
+                  _.each(dataports, function(dataport) {
+                    freeboard.addDatasource({
+                      type:"muranoDataport",
+                      settings:{
+                        name: dataport.alias,
+                        product_id: product,
+                        device_rid: device_rid,
+                        dataport_id: dataport.alias
+                        }
+                      });
                     });
-                });
+                  });
+              });
+
+              var hashpattern = window.location.hash.match(/(&|#)source=([^&]+)/);
+              if (hashpattern !== null) {
+                  $.getJSON(hashpattern[2], function(data) {
+                      freeboard.loadDashboard(data, function() {
+                          freeboard.setEditing(false);
+                      });
+                  });
+              }
+            }
+
+            function go_login() {
+              // redirect to Murano login and return here when done
+              //var redirect = encodeURIComponent(window.location.href);
+              //console.log(window.location.href, redirect);
+              
+              // TODO: support URL with query parameters. urlencoding
+              // fails in yeti
+              window.location = YETI_UI_URL + '/login?redirectTo=' + window.location.href; // + redirect;
+            }
+
+            var murano = new Murano({
+              yeti_api_url: YETI_API_URL
+            });
+            murano.init(function(token) {
+              if (token) {
+                console.log('YETI API TOKEN: ', token);
+                freeboard.murano = murano;
+                initialize_freeboard(token);
+              } else {
+                go_login();
+              }
+            });
+
+        });
+        });
     </script>
 </head>
 <body>
@@ -118,8 +165,7 @@
 		</ul>
 	</div>
     <div id="toggle-header" data-bind="click: toggleEditing">
-        <i id="toggle-header-icon" class="icon-wrench icon-white"></i>
-	</div>
+        <i id="toggle-header-icon" class="icon-wrench icon-white"></i></div>
 </header>
 
 <div style="display:hidden">

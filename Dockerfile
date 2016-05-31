@@ -20,7 +20,7 @@ RUN npm -q install
 COPY . /app
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/mime.types /etc/nginx/mime.types
-RUN grunt
+RUN grunt dev_server
 RUN rm -rf node_modules && \
     rm -rf tmp && \
     chmod 644 /etc/nginx/* && \
