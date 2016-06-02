@@ -4747,12 +4747,15 @@ freeboard.loadDatasourcePlugin({
 			freeboard.murano.get_latest_point_for(
           currentSettings.product_id, 
           currentSettings.device_rid, 
-          currentSettings.dataport_id, function (err, point) {
+          currentSettings.dataport_alias, function (err, point) {
 				if (err) {
 					//onNewData({});
-          console.log(err);
+          console.log('updateNow point error', currentSettings.dataport_alias, err);
 				} else {
-					onNewData(point[0]);
+          console.log('updateNow point', currentSettings.dataport_alias, point);
+          if (point) {
+            onNewData(point[1]);
+          }
 				}
 			});
 		}
@@ -4765,14 +4768,14 @@ freeboard.loadDatasourcePlugin({
 			freeboard.murano.stop_listening_for(
           currentSettings.product_id, 
           currentSettings.device_rid, 
-          currentSettings.dataport_id);
+          currentSettings.dataport_alias);
 
 			currentSettings = newSettings;
 
 			freeboard.murano.listen_for(
           currentSettings.product_id, 
           currentSettings.device_rid,
-          currentSettings.dataport_id,
+          currentSettings.dataport_alias,
           function (point) {
             onNewData(point);
           });
@@ -4785,7 +4788,7 @@ freeboard.loadDatasourcePlugin({
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
 		"display_name": "Murano Device Dataport",
-		"external_scripts": false, // NOTE: empty list causes problems
+		"external_scripts": null, // NOTE: empty list causes problems
 		"settings": [
 			{
 				name: "product_id",
@@ -4796,21 +4799,20 @@ freeboard.loadDatasourcePlugin({
 			},
 			{
 				name: "device_rid",
-				display_name: "Device Identifier",
+				display_name: "Device Identity",
 				"description": "Example: 00000002",
 				type: "text",
         default_value: "6468230c357716cfa34f1677a4d0b8475324506e"
 			},
 			{
-				name: "dataport_id",
-				display_name: "Dataport Identifier",
+				name: "dataport_alias",
+				display_name: "Dataport Alias",
 				"description": "Example: food_level",
 				type: "text",
         default_value: "temperature"
 			}
 		],
 		newInstance: function (settings, newInstanceCallback, updateCallback) {
-      console.log('new instance');
 			newInstanceCallback(new muranoDatasource(settings, updateCallback));
 		}
 	});
@@ -4822,9 +4824,11 @@ freeboard.loadDatasourcePlugin({
 const Murano = function(options) {
   var token = null;
   var yeti_api_url = options.yeti_api_url;
+  var websocket_url = options.websocket_url;
   var URL_base = yeti_api_url + "/api:1/product/";
   var URL_rpc = "/proxy/onep:v1/rpc/process";
   var URL_provision = "/proxy/provision"
+  var TOKEN_TTL_SECONDS = 7200;
   function provision_get(product_id, path, callback) {
     $.ajax({
       url: URL_base + product_id + URL_provision + path,
@@ -4874,7 +4878,107 @@ const Murano = function(options) {
     });
   };
 
+  var _socket = null;
+  var _reconnect = null;
+  // callback functions for each dataport alias
+  var _callbacks = {};
+
+  // Usage: call init() to do sso, then connect() to connect websocket
   const me = {
+    /* create token and connect websocket to 1P. This websocket
+       is shared by all datasources for this device.  */
+    connect: function(product_id, device_rid, dataport_aliases, callback) {
+      // Create 1P token with read and write permission for specified dataports
+      var permissions = {};
+      permissions[device_rid] = {
+        read: dataport_aliases, 
+        write: dataport_aliases,
+        subscribe: dataport_aliases
+      };
+      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
+        id: 0, 
+        procedure: 'grant',
+        arguments: [
+          device_rid,
+          permissions,
+          {ttl: TOKEN_TTL_SECONDS}
+        ]}]},
+        function(err, result) {
+          if (result[0].status !== 'ok') {
+            return callback ('Bad status from RPC: ' + result[0].status); 
+          }
+          var onep_token = result[0].result;
+          console.log('onep_token', onep_token);
+          // create websocket and authenticate 
+          _reconnect = function() {
+            _socket = new WebSocket(websocket_url);
+
+            _socket.onopen = function(evt) {
+              console.log('websocket connection opened. Sending auth...');
+              _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
+              _socket.onmessage = function(evt) {
+                // disable message handling until we're ready to 
+                // register the real message handler
+                _socket.onmessage = function(evt) {};
+
+                console.log(evt);
+                var response = JSON.parse(evt.data);
+                if (response.status === 'ok') {
+                  // websocket is open and authed
+                  // current time UTC. TODO: set this to the timestamp of last datapoint
+                  // for each device. If the browser's clock is off from the server this 
+                  // could cause the last point to be displayed twice.
+                  var since = Math.floor(new Date().getTime() / 1000);
+
+                  console.log('websocket is open and authed. Subscribing to device RID', device_rid);
+                  _.each(dataport_aliases, function(dataport_alias) {
+                    var subscription_id = dataport_alias;
+                    console.log('subscribing to', dataport_alias);
+                    _socket.send(JSON.stringify({calls: [{
+                      id: dataport_alias,
+                      procedure: 'subscribe',
+                      arguments: [
+                        {alias: dataport_alias, rid: device_rid},
+                        {
+                          since: since,
+                          /*subs_id: subscription_id*/
+                        }
+                      ]
+                    }]}));
+                  });
+                  _socket.onmessage = function(evt) {
+                    console.log('_socket.onmessage', evt);
+                    var data = JSON.parse(evt.data);
+                    _.each(data, function(response) {
+                      if (response.status === 'ok') {
+                        if (_callbacks[response.id] && response.hasOwnProperty('result')) {
+                          _callbacks[response.id](response.result[1]);
+                        }
+                      } else {
+                        console.log('Response error status', repsonse.status);
+                      }
+                    });
+                  }
+                  callback(null);
+                } else {
+                  console.log('error authenticating websocket', evt);
+                  callback(response.status);
+                }
+              }
+            }
+            _socket.onclose = function() {
+              console.log('websocket closed. Reconnecting...');
+              _reconnect();
+            }
+          }
+          _reconnect();
+        });
+    },
+    /* disconnect websocket and drop token */
+    disconnect: function() {
+      _socket.onclose = function() {};
+      _socket.close()
+    },
     init: function(callback) {
       // get token from Yeti
       $.ajax(yeti_api_url + '/session', {
@@ -4906,28 +5010,30 @@ const Murano = function(options) {
         }
       });
     },
-    get_latest_point_for: function(product_id, device_rid, dataport_id, callback) {
+    get_latest_point_for: function(product_id, device_rid, dataport_alias, callback) {
       RPC(product_id, {auth: {client_id: device_rid}, calls: [{
         id: 0, 
         procedure: 'read',
         arguments: [
-          {alias: dataport_id},
+          {alias: dataport_alias},
           {}
         ]}]},
         function(err, result) {
-          console.log('result from RPC:');
-          console.log(err, result);
           if (result[0].status !== 'ok') {
             return callback ('Bad status from RPC: ' + result[0].status); 
           }
           callback(err, result[0].result[0]);
         });
     },
-    listen_for: function(product_id, device_rid, dataport_id, callback) {
-      console.log('listen_for');
+    // register callback to call when data comes in on dataport_alias
+    listen_for: function(product_id, device_rid, dataport_alias, callback) {
+      console.log('listen_for', dataport_alias);
+      _callbacks[dataport_alias] = callback;
     },
-    stop_listening_for: function(product_id, device_rid, dataport_id, callback) {
-      console.log('stop_listening_for');
+    // unregister callback for data on dataport_alias
+    stop_listening_for: function(product_id, device_rid, dataport_alias) {
+      console.log('stop_listening_for', dataport_alias);
+      _callbacks[dataport_alias] = null;
     },
     /*
      * Look up RID by serial number

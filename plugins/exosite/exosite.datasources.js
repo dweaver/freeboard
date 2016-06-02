@@ -12,12 +12,15 @@
 			freeboard.murano.get_latest_point_for(
           currentSettings.product_id, 
           currentSettings.device_rid, 
-          currentSettings.dataport_id, function (err, point) {
+          currentSettings.dataport_alias, function (err, point) {
 				if (err) {
 					//onNewData({});
-          console.log(err);
+          console.log('updateNow point error', currentSettings.dataport_alias, err);
 				} else {
-					onNewData(point[0]);
+          console.log('updateNow point', currentSettings.dataport_alias, point);
+          if (point) {
+            onNewData(point[1]);
+          }
 				}
 			});
 		}
@@ -30,14 +33,14 @@
 			freeboard.murano.stop_listening_for(
           currentSettings.product_id, 
           currentSettings.device_rid, 
-          currentSettings.dataport_id);
+          currentSettings.dataport_alias);
 
 			currentSettings = newSettings;
 
 			freeboard.murano.listen_for(
           currentSettings.product_id, 
           currentSettings.device_rid,
-          currentSettings.dataport_id,
+          currentSettings.dataport_alias,
           function (point) {
             onNewData(point);
           });
@@ -50,7 +53,7 @@
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
 		"display_name": "Murano Device Dataport",
-		"external_scripts": false, // NOTE: empty list causes problems
+		"external_scripts": null, // NOTE: empty list causes problems
 		"settings": [
 			{
 				name: "product_id",
@@ -61,21 +64,20 @@
 			},
 			{
 				name: "device_rid",
-				display_name: "Device Identifier",
+				display_name: "Device Identity",
 				"description": "Example: 00000002",
 				type: "text",
         default_value: "6468230c357716cfa34f1677a4d0b8475324506e"
 			},
 			{
-				name: "dataport_id",
-				display_name: "Dataport Identifier",
+				name: "dataport_alias",
+				display_name: "Dataport Alias",
 				"description": "Example: food_level",
 				type: "text",
         default_value: "temperature"
 			}
 		],
 		newInstance: function (settings, newInstanceCallback, updateCallback) {
-      console.log('new instance');
 			newInstanceCallback(new muranoDatasource(settings, updateCallback));
 		}
 	});

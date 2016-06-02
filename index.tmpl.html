@@ -17,13 +17,13 @@
 <!-- @if NODE_ENV == 'DEVELOPMENT_SERVER' -->
     <link href="css/freeboard.min.css" rel="stylesheet" />
     <script src="js/freeboard.thirdparty.min.js"></script>
-    <script src="js/freeboard.thirdparty.min.js"></script>
     <script type="text/javascript">
       head.js("js/freeboard_plugins.min.js",
       function() {
 <!-- @endif -->
-        YETI_API_URL = 'https://biz-internal-api.exosite-dev.com';
-        YETI_UI_URL = 'https://iot.exosite-dev.com/business';
+        var YETI_API_URL = 'https://biz-internal-api.exosite-dev.com';
+        var YETI_UI_URL = 'https://iot.exosite-dev.com/business';
+        var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
         // *** Load more plugins here ***
         $(function() { //DOM Ready
             function getParameterByName(name) {
@@ -45,18 +45,25 @@
                 // add freeboard datasources for each dataport
                 murano.get_device_dataports(product, device_rid, function(err, dataports) {
                   console.log('err, dataports', err, dataports);
-                  _.each(dataports, function(dataport) {
-                    freeboard.addDatasource({
-                      type:"muranoDataport",
-                      settings:{
-                        name: dataport.alias,
-                        product_id: product,
-                        device_rid: device_rid,
-                        dataport_id: dataport.alias
-                        }
+                  // connect websocket
+                  murano.connect(product, device_rid, _.pluck(dataports, 'alias'), function(err) {
+                    if (err) {
+                      return console.log('Error connecting websocket', err);
+                    }
+                    // add dataports for this device as datasources
+                    _.each(dataports, function(dataport) {
+                      freeboard.addDatasource({
+                        type:"muranoDataport",
+                        settings:{
+                          name: dataport.alias,
+                          product_id: product,
+                          device_rid: device_rid,
+                          dataport_alias: dataport.alias
+                          }
                       });
                     });
                   });
+                });
               });
 
               var hashpattern = window.location.hash.match(/(&|#)source=([^&]+)/);
@@ -70,17 +77,14 @@
             }
 
             function go_login() {
-              // redirect to Murano login and return here when done
-              //var redirect = encodeURIComponent(window.location.href);
-              //console.log(window.location.href, redirect);
-              
-              // TODO: support URL with query parameters. urlencoding
-              // fails in yeti
-              window.location = YETI_UI_URL + '/login?redirectTo=' + window.location.href; // + redirect;
+              // TODO: encodeURIComponent(window.location.href), at the moment bizui 
+              // does not decode it so this works better
+              window.location = YETI_UI_URL + '/login?redirectTo=' + window.location.href;
             }
 
             var murano = new Murano({
-              yeti_api_url: YETI_API_URL
+              yeti_api_url: YETI_API_URL,
+              websocket_url: WEBSOCKET_URL
             });
             murano.init(function(token) {
               if (token) {
