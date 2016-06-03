@@ -121,7 +121,7 @@ module.exports = function(grunt) {
             }
         },
         watch: {
-          files: [ './index.tmpl.html', 'plugins/**/*.js', 'lib/**/*.js', 'img/**' ],
+          files: [ './index.tmpl.html', 'plugins/**/*.js', 'lib/**/*.js', 'img/**', 'lib/**/*.css' ],
           tasks: [ 'dev_local' ],
           options: {
             debounceDelay: 250,
