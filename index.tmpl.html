@@ -22,8 +22,8 @@
       head.js("js/freeboard_plugins.min.js",
       function() {
 <!-- @endif -->
-        var YETI_API_URL = 'https://biz-internal-api.exosite-dev.com';
-        var YETI_UI_URL = 'https://iot.exosite-dev.com/business';
+        var API_URL = 'https://biz-internal-api.exosite-dev.com';
+        var UI_URL = 'https://iot.exosite-dev.com/business';
         var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
         // *** Load more plugins here ***
         $(function() { //DOM Ready
@@ -33,12 +33,21 @@
               return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
             }
 
-            function initialize_freeboard(token) {
+            /* Handle general Murano error */
+            function general_murano_error(code, options) {
+              console.log('GENERAL MURANO ERROR', code);
+              if (code === murano.ERROR_CODES.BAD_TOKEN) {
+                go_login();
+              }
+            }
+
+            function initialize_app(murano) {
+              freeboard.murano = murano;
               freeboard.initialize(true);
 
               // TODO: show an error if product and device are not defined
               var product = getParameterByName('product') || 'qsn4ggiq04er8uxr';
-              var device = getParameterByName('device') || '00000002'; // '6468230c357716cfa34f1677a4d0b8475324506e';
+              var device = getParameterByName('device') || '00000002';
               console.log('product: ', product);
               console.log('device: ', device);
 
@@ -80,24 +89,23 @@
             function go_login() {
               // TODO: encodeURIComponent(window.location.href), at the moment bizui 
               // does not decode it so this works better
-              window.location = YETI_UI_URL + '/login?redirectTo=' + window.location.href;
+              window.location = UI_URL + '/login?redirectTo=' + window.location.href;
             }
 
             var murano = new Murano({
-              yeti_api_url: YETI_API_URL,
-              websocket_url: WEBSOCKET_URL
+              api_url: API_URL,
+              websocket_url: WEBSOCKET_URL,
+              error: general_murano_error
             });
-            murano.init(function(token) {
-              if (token) {
-                console.log('YETI API TOKEN: ', token);
-                freeboard.murano = murano;
-                initialize_freeboard(token);
-              } else {
+            murano.init(function(err) {
+              if (err) {
+                console.log(err);
                 go_login();
-              }
+              } else {
+                initialize_app(murano);
+              } 
             });
-
-        });
+          });
         });
     </script>
 </head>

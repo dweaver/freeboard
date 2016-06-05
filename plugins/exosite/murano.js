@@ -1,21 +1,74 @@
-// Murano API client library
-// TODO: use promise rather than callback
+/* Murano API client library
+ 
+ Example usage:
+  // instantiate Murano library
+  var murano = new Murano({
+    api_url: API_URL,
+    websocket_url: WEBSOCKET_URL,
+    error: function(code, options) {
+      // handle general errors here
+      if (code === murano.API_ERRORS.BAD_TOKEN) {
+        redirect_login();
+      } else {
+        console.log('UNKNOWN MURANO ERROR', code);
+      }
+    }
+  });
+  // get a API token for this browser session
+  murano.init(function(err) {
+    if (!err) {
+      return redirect_login();
+    }
+    // connect websocket
+    murano.connect(product_id, device_rid, dataport_aliases, function(err) {
+      if (err) {
+       return console.log('Error connecting websocket', err);
+      }
+    }
+  });
+*/
+'use strict';
 const Murano = function(options) {
-  var token = null;
-  var yeti_api_url = options.yeti_api_url;
+  var _token = null;
+  var api_url = options.api_url;
   var websocket_url = options.websocket_url;
-  var URL_base = yeti_api_url + "/api:1/product/";
+  var error_fn = options.error;
+  var URL_base = api_url + "/api:1/product/";
   var URL_rpc = "/proxy/onep:v1/rpc/process";
   var URL_provision = "/proxy/provision"
-  var TOKEN_TTL_SECONDS = 7200;
+  var ONEP_TOKEN_TTL_SECONDS = 7200;
+
+  // make an ajax call to murano API, calling general error handler
+  // instead of options.error if the token is bad.
+  function ajax_token(options) {
+    var wrapped_error = options.error;
+    options.error = function(xhr, status, error) {
+      www_authenticate = xhr.getResponseHeader('www-authenticate');
+      if (xhr.status === 401 && www_authenticate && www_authenticate.substr(0,5) == "token") {
+        // token is invalid, so app needs to handle that
+        error_fn(me.API_ERRORS.BAD_TOKEN, {
+          original_handler: function() {
+            if (wrapped_error) {
+              wrapped_error(xhr, status, error);
+            }
+          }
+        });
+      } else {
+        if (wrapped_error) {
+          wrapped_error(xhr, status, error);
+        } 
+      }
+    };
+    options.headers = options.headers || {};
+    options.headers.authorization = 'Token ' + _token;
+    $.ajax(options);
+  }
+
   function provision_get(product_id, path, callback) {
-    $.ajax({
+    ajax_token({
       url: URL_base + product_id + URL_provision + path,
       method: "GET",
-      headers: {
-        'authorization': 'Token ' + token
-      },
-      success: function (result) {
+        success: function (result) {
         callback(null, result);
       },
       error: function (xhr, status, error) {
@@ -24,13 +77,12 @@ const Murano = function(options) {
     });
   }
   function RPC(product_id, request, callback) {
-    $.ajax({
+    ajax_token({
       url: URL_base + product_id + URL_rpc,
       dataType: "JSON",
       method: "POST",
       data: JSON.stringify(request),
       headers: {
-        'authorization': 'Token ' + token,
         'content-type': 'application/json; charset=utf-8'
       },
       beforeSend: function (xhr) {
@@ -64,6 +116,9 @@ const Murano = function(options) {
 
   // Usage: call init() to do sso, then connect() to connect websocket
   const me = {
+    ERROR_CODES: {
+      BAD_TOKEN: 'BAD_TOKEN'
+    },
     /* create token and connect websocket to 1P. This websocket
        is shared by all datasources for this device.  */
     connect: function(product_id, device_rid, dataport_aliases, callback) {
@@ -80,7 +135,7 @@ const Murano = function(options) {
         arguments: [
           device_rid,
           permissions,
-          {ttl: TOKEN_TTL_SECONDS}
+          {ttl: ONEP_TOKEN_TTL_SECONDS}
         ]}]},
         function(err, result) {
           if (result[0].status !== 'ok') {
@@ -89,7 +144,7 @@ const Murano = function(options) {
           var onep_token = result[0].result;
           console.log('onep_token', onep_token);
           // create websocket and authenticate 
-          _reconnect = function() {
+          _reconnect = function(callback) {
             _socket = new WebSocket(websocket_url);
 
             _socket.onopen = function(evt) {
@@ -102,55 +157,61 @@ const Murano = function(options) {
 
                 console.log(evt);
                 var response = JSON.parse(evt.data);
-                if (response.status === 'ok') {
-                  // websocket is open and authed
-                  // current time UTC. TODO: set this to the timestamp of last datapoint
-                  // for each device. If the browser's clock is off from the server this 
-                  // could cause the last point to be displayed twice.
-                  var since = Math.floor(new Date().getTime() / 1000);
-
-                  console.log('websocket is open and authed. Subscribing to device RID', device_rid);
-                  _.each(dataport_aliases, function(dataport_alias) {
-                    var subscription_id = dataport_alias;
-                    console.log('subscribing to', dataport_alias);
-                    _socket.send(JSON.stringify({calls: [{
-                      id: dataport_alias,
-                      procedure: 'subscribe',
-                      arguments: [
-                        {alias: dataport_alias, rid: device_rid},
-                        {
-                          since: since,
-                          /*subs_id: subscription_id*/
-                        }
-                      ]
-                    }]}));
-                  });
-                  _socket.onmessage = function(evt) {
-                    console.log('_socket.onmessage', evt);
-                    var data = JSON.parse(evt.data);
-                    _.each(data, function(response) {
-                      if (response.status === 'ok') {
-                        if (_callbacks[response.id] && response.hasOwnProperty('result')) {
-                          _callbacks[response.id](response.result[1]);
-                        }
-                      } else {
-                        console.log('Response error status', repsonse.status);
-                      }
-                    });
-                  }
-                  callback(null);
-                } else {
+                if (response.status !== 'ok') {
                   console.log('error authenticating websocket', evt);
                   callback(response.status);
                 }
+
+                // websocket is open and authed
+                // current time UTC. TODO: set this to the timestamp of last datapoint
+                // for each device. If the browser's clock is off from the server this 
+                // could cause the last point to be displayed twice.
+                var since = Math.floor(new Date().getTime() / 1000);
+
+                console.log('websocket is open and authed. Subscribing to device RID', device_rid);
+                _.each(dataport_aliases, function(dataport_alias) {
+                  var subscription_id = dataport_alias;
+                  console.log('subscribing to', dataport_alias);
+                  _socket.send(JSON.stringify({calls: [{
+                    id: dataport_alias,
+                    procedure: 'subscribe',
+                    arguments: [
+                      {alias: dataport_alias, rid: device_rid},
+                      {
+                        since: since,
+                        /*subs_id: subscription_id*/
+                      }
+                    ]
+                  }]}));
+                });
+                _socket.onmessage = function(evt) {
+                  console.log('_socket.onmessage', evt);
+                  var data = JSON.parse(evt.data);
+                  _.each(data, function(response) {
+                    if (response.status === 'ok') {
+                      if (_callbacks[response.id] && response.hasOwnProperty('result')) {
+                        _callbacks[response.id](response.result[1]);
+                      }
+                    } else {
+                      console.log('Response error status', repsonse.status);
+                    }
+                  });
+                }
+                callback(null);
               }
             }
             _socket.onclose = function() {
               console.log('websocket closed. Reconnecting...');
-              _reconnect();
+              _reconnect(function(err) {
+                if (err) {
+                  callback('_reconnect error', err);
+                }
+              });
             }
           }
-          _reconnect();
+          _reconnect(function (err) {
+            callback(err);
+          });
         });
     },
     /* disconnect websocket and drop token */
@@ -159,30 +220,32 @@ const Murano = function(options) {
       _socket.close()
     },
     init: function(callback) {
-      // get token from Yeti
-      $.ajax(yeti_api_url + '/session', {
+      // get session token
+      // intentionally using $.ajax here instead of ajax_token
+      $.ajax(api_url + '/session', {
         success: function(data) {
-          console.log('data', data);
           if (!data.hasOwnProperty('apitoken')) {
-            callback(false);
+            callback('NO_TOKEN');
           } else {
-            token = data.apitoken;
+            // set token for module
+            _token = data.apitoken;
             // Check that the token is not expired
-            $.ajax(yeti_api_url + '/api:1/token/' + token, {
+            // intentionally using $.ajax here instead of ajax_token
+            $.ajax(api_url + '/api:1/token/' + _token, {
               success: function(data) {
-                callback(token);
+                callback(null);
               },
               error: function(xhr, status, error) {
                 console.log(status, error);
                 // /session returned a token, but that token is not good (expired?)
-                callback(false);
+                callback('EXPIRED_TOKEN');
               }
             });
           }
         },
         error: function(xhr, status, error) {
           console.log(status, error);
-          callback(false);
+          callback('FAIL_TOKEN');
         },
         xhrFields: {
           withCredentials: true
