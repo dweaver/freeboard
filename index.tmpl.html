@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Murano dashboard</title>
+    <title>Dashboard</title>
 	<meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
@@ -16,7 +16,7 @@
         function() {
 <!-- @endif -->
 <!-- @if NODE_ENV == 'DEVELOPMENT_SERVER' -->
-    <link href="css/freeboard.css" rel="stylesheet" />
+    <link href="css/freeboard.min.css" rel="stylesheet" />
     <script src="js/freeboard.thirdparty.min.js"></script>
     <script type="text/javascript">
       head.js("js/freeboard_plugins.min.js",
@@ -52,27 +52,34 @@
               console.log('device: ', device);
 
               murano.get_device_rid_by_identity(product, device, function(err, device_rid) {
-                // add freeboard datasources for each dataport
-                murano.get_device_dataports(product, device_rid, function(err, dataports) {
-                  console.log('err, dataports', err, dataports);
-                  // connect websocket
-                  murano.connect(product, device_rid, _.pluck(dataports, 'alias'), function(err) {
-                    if (err) {
-                      return console.log('Error connecting websocket', err);
-                    }
-                    // add dataports for this device as datasources
-                    _.each(dataports, function(dataport) {
-                      freeboard.addDatasource({
-                        type:"muranoDataport",
-                        settings:{
-                          name: dataport.alias,
-                          product_id: product,
-                          device_rid: device_rid,
-                          dataport_alias: dataport.alias
-                          }
+                freeboard.loadDashboardFromCloud(product, device_rid, function(err) {
+                  if (err) {
+                    console.log('No saved device dashboard found. ' + 
+                      'Initializing a new one. (', err, ')');
+                    // add freeboard datasources for each dataport
+                    murano.get_device_dataports(product, device_rid, function(err, dataports) {
+                      // connect websocket
+                      murano.connect(product, device_rid, _.pluck(dataports, 'alias'), function(err) {
+                        if (err) {
+                          return console.log('Error connecting websocket', err);
+                        }
+                        // add dataports for this device as datasources
+                        _.each(dataports, function(dataport) {
+                          freeboard.addDatasource({
+                            type:"muranoDataport",
+                            settings:{
+                              name: dataport.alias,
+                              product_id: product,
+                              device_rid: device_rid,
+                              dataport_alias: dataport.alias
+                              }
+                          });
+                        });
                       });
                     });
-                  });
+                  } else {
+                    console.log('Loaded saved device dashboard.');
+                  }
                 });
               });
 
@@ -127,9 +134,14 @@
                         <li id="add-pane" data-bind="click: createPane"><i class="icon-plus icon-white"></i><label>Add Pane</label></li>
                         <li data-bind="click: loadDashboardFromLocalFile"><i id="full-screen-icon" class="icon-folder-open icon-white"></i><label id="full-screen">IMPORT</label></li>
                         <li><i class="icon-download-alt icon-white"></i>
-                            <label data-bind="click: saveDashboardClicked">EXPORT</label>
+                            <label data-bind="click: toggleSubmenu">EXPORT</label>
                             <label style="display: none;" data-bind="click: saveDashboard" data-pretty="true">[Pretty]</label>
                             <label style="display: none;" data-bind="click: saveDashboard" data-pretty="false">[Minified]</label>
+                        </li>
+                        <li><i class="icon-star icon-white"></i>
+                            <label data-bind="click: toggleSubmenu">DEVICE DASHBOARD</label>
+                            <label style="display: none;" data-bind="click: saveDashboardToCloudClicked">[Save]</label>
+                            <label style="display: none;" data-bind="click: loadDashboardFromCloudClicked">[Load]</label>
                         </li>
                     </ul>
                 </div>

@@ -2058,9 +2058,24 @@ const Murano = function(options) {
     ERROR_CODES: {
       BAD_TOKEN: 'BAD_TOKEN'
     },
+    get_connected_device: function() {
+      var device = null;
+      if (me.product_id && me.device_rid) {
+        device = {
+          product_id: me.product_id,
+          device_rid: me.device_rid
+        };
+      }
+      return device;
+    },
     /* create token and connect websocket to 1P. This websocket
        is shared by all datasources for this device.  */
     connect: function(product_id, device_rid, dataport_aliases, callback) {
+
+      // save the current product and device IDs
+      me.product_id = product_id;
+      me.device_rid = device_rid;
+
       // Create 1P token with read and write permission for specified dataports
       var permissions = {};
       permissions[device_rid] = {
@@ -2157,6 +2172,34 @@ const Murano = function(options) {
     disconnect: function() {
       _socket.onclose = function() {};
       _socket.close()
+    },
+    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
+      ajax_token({
+        url: URL_base + product_id + '/dashboard/' + dashboard_id,
+        method: 'PUT',
+        data: dashboard_json,
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        }, 
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    load_dashboard: function(product_id, dashboard_id, callback) {
+      ajax_token({
+        url: URL_base + product_id + '/dashboard/' + dashboard_id,
+        method: 'GET',
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
     },
     init: function(callback) {
       // get session token

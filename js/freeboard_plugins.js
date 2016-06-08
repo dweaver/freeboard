@@ -543,7 +543,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		}
 	}
 
-	this.saveDashboardClicked = function(){
+	this.toggleSubmenu = function(){
 		var target = $(event.currentTarget);
 		var siblingsShown = target.data('siblings-shown') || false;
 		if(!siblingsShown){
@@ -570,6 +570,48 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		a.target="_self";
 		a.click();
 	}
+
+  this.saveDashboardToCloudClicked = function(_thisref, event)
+	{
+    // TODO: can I avoid using freeboard global?
+    var device = freeboard.murano.get_connected_device();
+    var product_id = device.product_id;
+    var device_rid = device.device_rid;
+    var blob = JSON.stringify(self.serialize());
+    freeboard.murano.save_dashboard(
+      product_id,
+      device_rid,
+      blob, 
+      function(err, result) {
+        console.log('save callback', err, result);
+    });
+	}
+
+  this.loadDashboardFromCloud = function(product_id, device_rid, callback) {
+    freeboard.murano.load_dashboard(
+      product_id,
+      device_rid,
+      function(err, result) {
+        if (err) {
+          callback(err);
+        }
+        self.loadDashboard(result);
+        callback(null);
+    });
+  } 
+
+  this.loadDashboardFromCloudClicked = function(_thisref, event)
+  {
+    // TODO: can I avoid using freeboard global?
+    var device = freeboard.murano.get_connected_device();
+    var product_id = device.product_id;
+    var device_rid = device.device_rid;
+    self.loadDashboardFromCloud(product_id, device_rid, function(err) {
+      if (err) {
+        console.log('Error loading dashboard from cloud', err);
+      }
+    });
+  }
 
 	this.addDatasource = function(datasource)
 	{
@@ -2910,6 +2952,10 @@ var freeboard = (function()
 		{
 			theFreeboardModel.loadDashboard(configuration, callback);
 		},
+    loadDashboardFromCloud: function(product_id, device_rid, callback) 
+    {
+      theFreeboardModel.loadDashboardFromCloud(product_id, device_rid, callback);
+    },
 		serialize           : function()
 		{
 			return theFreeboardModel.serialize();
@@ -5122,9 +5168,24 @@ const Murano = function(options) {
     ERROR_CODES: {
       BAD_TOKEN: 'BAD_TOKEN'
     },
+    get_connected_device: function() {
+      var device = null;
+      if (me.product_id && me.device_rid) {
+        device = {
+          product_id: me.product_id,
+          device_rid: me.device_rid
+        };
+      }
+      return device;
+    },
     /* create token and connect websocket to 1P. This websocket
        is shared by all datasources for this device.  */
     connect: function(product_id, device_rid, dataport_aliases, callback) {
+
+      // save the current product and device IDs
+      me.product_id = product_id;
+      me.device_rid = device_rid;
+
       // Create 1P token with read and write permission for specified dataports
       var permissions = {};
       permissions[device_rid] = {
@@ -5221,6 +5282,34 @@ const Murano = function(options) {
     disconnect: function() {
       _socket.onclose = function() {};
       _socket.close()
+    },
+    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
+      ajax_token({
+        url: URL_base + product_id + '/dashboard/' + dashboard_id,
+        method: 'PUT',
+        data: dashboard_json,
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        }, 
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    load_dashboard: function(product_id, dashboard_id, callback) {
+      ajax_token({
+        url: URL_base + product_id + '/dashboard/' + dashboard_id,
+        method: 'GET',
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
     },
     init: function(callback) {
       // get session token
