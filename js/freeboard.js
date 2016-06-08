@@ -100,6 +100,15 @@ DatasourceModel = function(theFreeboardModel, datasourcePlugins) {
 		}
 	}
 
+	this.writeNow = function(value)
+	{
+		if(!_.isUndefined(self.datasourceInstance) && _.isFunction(self.datasourceInstance.writeNow))
+		{
+			self.datasourceInstance.writeNow(value);
+		}
+	}
+
+
 	this.dispose = function()
 	{
 		disposeDatasourceInstance();
@@ -668,6 +677,20 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		var editing = !self.isEditing();
 		self.setEditing(editing);
 	}
+
+  this.writeToDatasource = function(datasourceName, value) {
+    // look up datasource
+    var datasourceToWrite = null;
+		_.each(self.datasources(), function(datasource) {
+      if (datasource.name() === datasourceName) {
+        // write to datasource
+        datasourceToWrite = datasource;
+      }
+		});
+    if (datasourceToWrite !== null) {
+      datasourceToWrite.writeNow(value);
+    }
+  }
 }
 
 function FreeboardUI()
@@ -2211,6 +2234,11 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 					self.shouldRender(true);
 					self._heightUpdate.valueHasMutated();
 
+          self.widgetInstance.handleWidgetEvent = function(evt) {
+            if (evt.type === 'write') {
+              self.writeToDatasource(evt.datasourceName, evt.value);
+            }
+          }
 				});
 			}
 
@@ -2247,6 +2275,10 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 	this.callValueFunction = function (theFunction) {
 		return theFunction.call(undefined, theFreeboardModel.datasourceData);
 	}
+
+  this.writeToDatasource = function(datasourceName, value) {
+    theFreeboardModel.writeToDatasource(datasourceName, value);
+  }
 
 	this.processSizeChange = function () {
 		if (!_.isUndefined(self.widgetInstance) && _.isFunction(self.widgetInstance.onSizeChanged)) {

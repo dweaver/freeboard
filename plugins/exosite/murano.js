@@ -268,6 +268,21 @@ const Murano = function(options) {
           callback(err, result[0].result[0]);
         });
     },
+    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
+      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
+        id: 0, 
+        procedure: 'write',
+        arguments: [
+          {alias: dataport_alias},
+          value 
+        ]}]},
+        function(err, result) {
+          if (result[0].status !== 'ok') {
+            return callback ('Bad status from RPC: ' + result[0].status); 
+          }
+          callback(err, result[0].result[0]);
+        });
+    },
     // register callback to call when data comes in on dataport_alias
     listen_for: function(product_id, device_rid, dataport_alias, callback) {
       console.log('listen_for', dataport_alias);

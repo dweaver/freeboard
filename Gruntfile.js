@@ -22,8 +22,12 @@ module.exports = function(grunt) {
         concat: {
             css: {
                 src: [
-                    'lib/css/thirdparty/*.css',
-                    'lib/css/freeboard/styles.css'
+                    'lib/css/thirdparty/codemirror.css',
+                    'lib/css/thirdparty/codemirror-ambiance.css',
+                    'lib/css/thirdparty/jquery.gridster.min.css',
+                    'lib/css/freeboard/styles.css',
+                    'lib/css/thirdparty/toggles.css',
+                    'lib/css/thirdparty/toggles-dark.css'
                 ],
                 dest: 'css/freeboard.css'
             },
@@ -33,12 +37,13 @@ module.exports = function(grunt) {
                         'lib/js/thirdparty/head.js',
                         'lib/js/thirdparty/jquery.js',
                         'lib/js/thirdparty/jquery-ui.js',
+                        'lib/js/thirdparty/toggles.js',
                         'lib/js/thirdparty/knockout.js',
                         'lib/js/thirdparty/underscore.js',
                         'lib/js/thirdparty/jquery.gridster.js',
                         'lib/js/thirdparty/jquery.caret.js',
 						'lib/js/thirdparty/jquery.xdomainrequest.js',
-                        'lib/js/thirdparty/codemirror.js',
+                        'lib/js/thirdparty/codemirror.js'
                     ]
                 ],
                 dest : 'js/freeboard.thirdparty.js'
@@ -137,10 +142,12 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-preprocess');
     grunt.loadNpmTasks('grunt-env');
     grunt.loadNpmTasks('grunt-string-replace');
+    
 
     var base_tasks = [ 'concat:css', 'cssmin:css', 'concat:fb', 'concat:thirdparty', 'concat:plugins', 'concat:fb_plugins', 'uglify:fb', 'uglify:plugins', 'uglify:fb_plugins', 'uglify:thirdparty', 'string-replace:css' ];
+    var base_tasks_dev = [ 'concat:css', 'concat:fb', 'concat:thirdparty', 'concat:plugins', 'concat:fb_plugins', 'string-replace:css' ];
 
-    var dev_local_tasks = ['env:dev_local', 'preprocess:dev_local'].concat(base_tasks.slice(0));
+    var dev_local_tasks = ['env:dev_local', 'preprocess:dev_local'].concat(base_tasks_dev.slice(0));
     grunt.registerTask('dev_local', dev_local_tasks);
 
     var dev_server_tasks = ['env:dev_server', 'preprocess:dev_server'].concat(base_tasks.slice(0));

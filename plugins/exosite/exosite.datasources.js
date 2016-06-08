@@ -17,7 +17,6 @@
 					//onNewData({});
           console.log('updateNow point error', currentSettings.dataport_alias, err);
 				} else {
-          console.log('updateNow point', currentSettings.dataport_alias, point);
           if (point) {
             onNewData(point[1]);
           }
@@ -25,8 +24,20 @@
 			});
 		}
 
-		this.onDispose = function () {
+    this.writeNow = function(value) {
+      freeboard.murano.write_value_for(
+        currentSettings.product_id,
+        currentSettings.device_rid,
+        currentSettings.dataport_alias, 
+        value, function (err) {
+          if (err) {
+            // TODO: display error to UI
+            console.log('Error writing to ' + currentSettings.dataport_alias, err);
+          } 
+        });
+    }
 
+		this.onDispose = function () {
 		}
 
 		this.onSettingsChanged = function (newSettings) {
@@ -59,22 +70,19 @@
 				name: "product_id",
 				display_name: "Product Identifier",
 				"description": "Example: Pet Food Dispenser",
-				type: "text",
-        default_value: "qsn4ggiq04er8uxr"
+				type: "text"
 			},
 			{
 				name: "device_rid",
 				display_name: "Device Identity",
 				"description": "Example: 00000002",
-				type: "text",
-        default_value: "6468230c357716cfa34f1677a4d0b8475324506e"
+				type: "text"
 			},
 			{
 				name: "dataport_alias",
 				display_name: "Dataport Alias",
 				"description": "Example: food_level",
-				type: "text",
-        default_value: "temperature"
+				type: "text"
 			}
 		],
 		newInstance: function (settings, newInstanceCallback, updateCallback) {
