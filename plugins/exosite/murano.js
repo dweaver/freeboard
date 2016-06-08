@@ -27,6 +27,7 @@
     }
   });
 */
+
 'use strict';
 const Murano = function(options) {
   var _token = null;
@@ -36,7 +37,7 @@ const Murano = function(options) {
   var URL_base = api_url + "/api:1/product/";
   var URL_rpc = "/proxy/onep:v1/rpc/process";
   var URL_provision = "/proxy/provision"
-  var ONEP_TOKEN_TTL_SECONDS = 7200;
+  var ONEP_TOKEN_TTL_SECONDS = 86400; // 24 hours
 
   // make an ajax call to murano API, calling general error handler
   // instead of options.error if the token is bad.
