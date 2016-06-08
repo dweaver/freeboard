@@ -2734,10 +2734,14 @@ h1.logo-dashboard {
   padding-bottom: 20px;
 }
 
-/* Toggle Switch */
+/* Toggle Switch - http://callmenick.com/post/css-toggle-switch-examples */
 .toggle-switch {
   padding-top: 10px;
 }
+
+/* ============================================================
+  COMMON
+============================================================ */
 .cmn-toggle {
   position: absolute;
   margin-left: -9999px;
@@ -2748,18 +2752,31 @@ h1.logo-dashboard {
   position: relative;
   cursor: pointer;
   outline: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
 }
+
+/* ============================================================
+  SWITCH 2 - ROUND FLAT
+============================================================ */
 input.cmn-toggle-round-flat + label {
   padding: 2px;
   width: 120px;
   height: 60px;
   background-color: #dddddd;
+  -webkit-border-radius: 60px;
+  -moz-border-radius: 60px;
+  -ms-border-radius: 60px;
+  -o-border-radius: 60px;
   border-radius: 60px;
+  -webkit-transition: background 0.4s;
+  -moz-transition: background 0.4s;
+  -o-transition: background 0.4s;
   transition: background 0.4s;
 }
-input.cmn-toggle-round-flat + label:before,
-input.cmn-toggle-round-flat + label:after {
+input.cmn-toggle-round-flat + label:before, input.cmn-toggle-round-flat + label:after {
   display: block;
   position: absolute;
   content: "";
@@ -2770,7 +2787,14 @@ input.cmn-toggle-round-flat + label:before {
   bottom: 2px;
   right: 2px;
   background-color: #fff;
+  -webkit-border-radius: 60px;
+  -moz-border-radius: 60px;
+  -ms-border-radius: 60px;
+  -o-border-radius: 60px;
   border-radius: 60px;
+  -webkit-transition: background 0.4s;
+  -moz-transition: background 0.4s;
+  -o-transition: background 0.4s;
   transition: background 0.4s;
 }
 input.cmn-toggle-round-flat + label:after {
@@ -2779,7 +2803,14 @@ input.cmn-toggle-round-flat + label:after {
   bottom: 4px;
   width: 52px;
   background-color: #dddddd;
+  -webkit-border-radius: 52px;
+  -moz-border-radius: 52px;
+  -ms-border-radius: 52px;
+  -o-border-radius: 52px;
   border-radius: 52px;
+  -webkit-transition: margin 0.4s, background 0.4s;
+  -moz-transition: margin 0.4s, background 0.4s;
+  -o-transition: margin 0.4s, background 0.4s;
   transition: margin 0.4s, background 0.4s;
 }
 input.cmn-toggle-round-flat:checked + label {
@@ -2788,4 +2819,4 @@ input.cmn-toggle-round-flat:checked + label {
 input.cmn-toggle-round-flat:checked + label:after {
   margin-left: 60px;
   background-color: #8ce196;
-} 
+}
