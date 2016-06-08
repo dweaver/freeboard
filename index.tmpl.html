@@ -53,16 +53,22 @@
 
               murano.get_device_rid_by_identity(product, device, function(err, device_rid) {
                 freeboard.loadDashboardFromCloud(product, device_rid, function(err) {
+                  var loadedDashboard = false;
                   if (err) {
                     console.log('No saved device dashboard found. ' + 
                       'Initializing a new one. (', err, ')');
-                    // add freeboard datasources for each dataport
-                    murano.get_device_dataports(product, device_rid, function(err, dataports) {
-                      // connect websocket
-                      murano.connect(product, device_rid, _.pluck(dataports, 'alias'), function(err) {
-                        if (err) {
-                          return console.log('Error connecting websocket', err);
-                        }
+                  } else {
+                    console.log('Loaded saved device dashboard.');
+                    loadedDashboard = true;
+                  }
+                  // add freeboard datasources for each dataport
+                  murano.get_device_dataports(product, device_rid, function(err, dataports) {
+                    // connect websocket
+                    murano.connect(product, device_rid, _.pluck(dataports, 'alias'), function(err) {
+                      if (err) {
+                        return console.log('Error connecting websocket', err);
+                      }
+                      if (!loadedDashboard) {
                         // add dataports for this device as datasources
                         _.each(dataports, function(dataport) {
                           freeboard.addDatasource({
@@ -75,11 +81,9 @@
                               }
                           });
                         });
-                      });
+                      }
                     });
-                  } else {
-                    console.log('Loaded saved device dashboard.');
-                  }
+                  });
                 });
               });
 
