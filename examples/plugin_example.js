@@ -174,6 +174,12 @@
 			// Most likely I'll just call getData() here.
 			getData();
 		}
+    
+		// **writeNow()** (optional) : A public function that writes a value to the datasource
+		self.writeNow = function(value)
+		{
+      // write, if datasource supports it
+		}
 
 		// **onDispose()** (required) : A public function we must implement that will be called when this instance of this plugin is no longer needed. Do anything you need to cleanup after yourself here.
 		self.onDispose = function()
