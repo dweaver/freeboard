@@ -271,6 +271,19 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 {
 	var self = this;
 
+  function formatAMPM() {
+      var date = new Date();
+      var hours = date.getHours();
+      var days = date.getDay(); 
+      var minutes = date.getMinutes();
+      var ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      minutes = minutes < 10 ? '0'+minutes : minutes;
+      var strTime = hours + ':' + minutes + ' ' + ampm;
+      return strTime;
+  }
+
 	var SERIALIZATION_VERSION = 1;
 
 	this.version = 0;
@@ -583,7 +596,10 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
       device_rid,
       blob, 
       function(err, result) {
-        console.log('save callback', err, result);
+        if (err) {
+          console.log('Error saving', err);
+        }
+        $('#cloud-save-notification').html('(last saved at ' + formatAMPM() + ')');
     });
 	}
 
@@ -4873,7 +4889,6 @@ freeboard.loadDatasourcePlugin({
 		self.onSettingsChanged(settings);
 	};
 
-  console.log('loading datasource plugin');
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
 		"display_name": "Murano Device Dataport",
@@ -4882,13 +4897,13 @@ freeboard.loadDatasourcePlugin({
 			{
 				name: "product_id",
 				display_name: "Product Identifier",
-				"description": "Example: Pet Food Dispenser",
+				"description": "Note: Dashboards are limited to a single product specified in URL",
 				type: "text"
 			},
 			{
 				name: "device_rid",
 				display_name: "Device Identity",
-				"description": "Example: 00000002",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
 				type: "text"
 			},
 			{
@@ -5212,6 +5227,20 @@ const Murano = function(options) {
             _socket = new WebSocket(websocket_url);
 
             _socket.onopen = function(evt) {
+              switch(_socket.readyState) {
+                case WebSocket.CONNECTING: 
+                  console.log('CONNECTING The connection is not yet open.');
+                  break;
+                case WebSocket.OPEN:
+                  console.log('OPEN The connection is open and ready to communicate.');
+                  break;
+                case WebSocket.CLOSING:
+                  console.log('CLOSING The connection is in the process of closing.');
+                  break;
+                case WebSocket.CLOSED:
+                  console.log('CLOSED The connection is closed or couldn\'t be opened.');
+                  break;
+              }
               console.log('websocket connection opened. Sending auth...');
               _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
               _socket.onmessage = function(evt) {

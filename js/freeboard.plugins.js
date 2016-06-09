@@ -1763,7 +1763,6 @@ freeboard.loadDatasourcePlugin({
 		self.onSettingsChanged(settings);
 	};
 
-  console.log('loading datasource plugin');
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
 		"display_name": "Murano Device Dataport",
@@ -1772,13 +1771,13 @@ freeboard.loadDatasourcePlugin({
 			{
 				name: "product_id",
 				display_name: "Product Identifier",
-				"description": "Example: Pet Food Dispenser",
+				"description": "Note: Dashboards are limited to a single product specified in URL",
 				type: "text"
 			},
 			{
 				name: "device_rid",
 				display_name: "Device Identity",
-				"description": "Example: 00000002",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
 				type: "text"
 			},
 			{
@@ -2102,6 +2101,20 @@ const Murano = function(options) {
             _socket = new WebSocket(websocket_url);
 
             _socket.onopen = function(evt) {
+              switch(_socket.readyState) {
+                case WebSocket.CONNECTING: 
+                  console.log('CONNECTING The connection is not yet open.');
+                  break;
+                case WebSocket.OPEN:
+                  console.log('OPEN The connection is open and ready to communicate.');
+                  break;
+                case WebSocket.CLOSING:
+                  console.log('CLOSING The connection is in the process of closing.');
+                  break;
+                case WebSocket.CLOSED:
+                  console.log('CLOSED The connection is closed or couldn\'t be opened.');
+                  break;
+              }
               console.log('websocket connection opened. Sending auth...');
               _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
               _socket.onmessage = function(evt) {

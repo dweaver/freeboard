@@ -60,7 +60,6 @@
 		self.onSettingsChanged(settings);
 	};
 
-  console.log('loading datasource plugin');
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
 		"display_name": "Murano Device Dataport",
@@ -69,13 +68,13 @@
 			{
 				name: "product_id",
 				display_name: "Product Identifier",
-				"description": "Example: Pet Food Dispenser",
+				"description": "Note: Dashboards are limited to a single product specified in URL",
 				type: "text"
 			},
 			{
 				name: "device_rid",
 				display_name: "Device Identity",
-				"description": "Example: 00000002",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
 				type: "text"
 			},
 			{

@@ -164,6 +164,20 @@ const Murano = function(options) {
             _socket = new WebSocket(websocket_url);
 
             _socket.onopen = function(evt) {
+              switch(_socket.readyState) {
+                case WebSocket.CONNECTING: 
+                  console.log('CONNECTING The connection is not yet open.');
+                  break;
+                case WebSocket.OPEN:
+                  console.log('OPEN The connection is open and ready to communicate.');
+                  break;
+                case WebSocket.CLOSING:
+                  console.log('CLOSING The connection is in the process of closing.');
+                  break;
+                case WebSocket.CLOSED:
+                  console.log('CLOSED The connection is closed or couldn\'t be opened.');
+                  break;
+              }
               console.log('websocket connection opened. Sending auth...');
               _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
               _socket.onmessage = function(evt) {

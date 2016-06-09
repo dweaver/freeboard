@@ -271,6 +271,19 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 {
 	var self = this;
 
+  function formatAMPM() {
+      var date = new Date();
+      var hours = date.getHours();
+      var days = date.getDay(); 
+      var minutes = date.getMinutes();
+      var ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      minutes = minutes < 10 ? '0'+minutes : minutes;
+      var strTime = hours + ':' + minutes + ' ' + ampm;
+      return strTime;
+  }
+
 	var SERIALIZATION_VERSION = 1;
 
 	this.version = 0;
@@ -583,7 +596,10 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
       device_rid,
       blob, 
       function(err, result) {
-        console.log('save callback', err, result);
+        if (err) {
+          console.log('Error saving', err);
+        }
+        $('#cloud-save-notification').html('(last saved at ' + formatAMPM() + ')');
     });
 	}
 
