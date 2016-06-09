@@ -23,7 +23,7 @@
       function() {
 <!-- @endif -->
         var API_URL = 'https://biz-internal-api.exosite-dev.com';
-        var UI_URL = 'https://iot.exosite-dev.com/business';
+        var UI_URL = 'https://iot.exosite-dev.com/oldui';
         var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
         // *** Load more plugins here ***
         $(function() { //DOM Ready
@@ -143,7 +143,7 @@
                             <label style="display: none;" data-bind="click: saveDashboard" data-pretty="false">[Minified]</label>
                         </li>
                         <li><i class="icon-star icon-white"></i>
-                            <label data-bind="click: toggleSubmenu">DEVICE DASHBOARD</label>
+                            <label data-bind="click: toggleSubmenu">SAVED DEVICE DASHBOARD</label>
                             <label style="display: none;" data-bind="click: saveDashboardToCloudClicked">[Save]</label>
                             <label style="display: none;" data-bind="click: loadDashboardFromCloudClicked">[Load]</label>
                         </li>
