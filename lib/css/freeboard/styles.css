@@ -719,7 +719,7 @@ table {
 }
 
 .table .table {
-	background-color: #eeeeee;
+	background-color: #ffffff;
 }
 
 .table-condensed th,
@@ -750,7 +750,7 @@ a:active {
 }
 
 a {
-	color: #eeeeee;
+	color: #ffffff;
 	text-decoration: none;
 }
 
@@ -765,7 +765,7 @@ a:focus {
 	height: 30px;
 	margin: 0;
 	padding: 0 10px 0 10px;
-	color: #8b8b8b;
+	color: #ffffff;
 	text-transform: uppercase;
 }
 
@@ -1747,7 +1747,7 @@ td.form-table-value > input[type="checkbox"] {
 }
 
 .value-editor-ds {
-	color: #eeeeee;
+	color: #ffffff;
 	cursor: pointer;
 }
 
@@ -1763,7 +1763,7 @@ ul.board-toolbar.vertical {
 }
 
 .board-toolbar li {
-	color: #eeeeee;
+	color: #ffffff;
 	float: left;
 	cursor: pointer;
 	margin: 0px 0px 0px 5px;
@@ -1801,7 +1801,7 @@ ul.board-toolbar.vertical {
 }
 
 .text-button {
-	color: #eeeeee;
+	color: #ffffff;
 	cursor: pointer;
 	text-transform: uppercase;
 }
@@ -1811,7 +1811,7 @@ ul.board-toolbar.vertical {
 }
 
 a:hover.text-button, a:focus.text-button {
-	color: #eeeeee;
+	color: #ffffff;
 	text-decoration: none;
 }
 
@@ -2378,7 +2378,7 @@ input:-moz-placeholder, textarea:-moz-placeholder {
 }
 
 h1.logo-dashboard {
-  color: #eeeeee;
+  color: #ffffff;
 	font-size: 1.7em;
   font-weight: 300;
   padding-bottom: 20px;
