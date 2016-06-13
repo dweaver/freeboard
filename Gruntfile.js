@@ -25,9 +25,9 @@ module.exports = function(grunt) {
                     'lib/css/thirdparty/codemirror.css',
                     'lib/css/thirdparty/codemirror-ambiance.css',
                     'lib/css/thirdparty/jquery.gridster.min.css',
-                    'lib/css/freeboard/styles.css',
-                    'lib/css/thirdparty/toggles.css',
-                    'lib/css/thirdparty/toggles-dark.css'
+                    'lib/css/thirdparty/snackbar.css',
+                    'lib/css/thirdparty/snackbar-material.css',
+                    'lib/css/freeboard/styles.css'
                 ],
                 dest: 'css/freeboard.css'
             },
@@ -43,7 +43,8 @@ module.exports = function(grunt) {
                         'lib/js/thirdparty/jquery.gridster.js',
                         'lib/js/thirdparty/jquery.caret.js',
 						'lib/js/thirdparty/jquery.xdomainrequest.js',
-                        'lib/js/thirdparty/codemirror.js'
+                        'lib/js/thirdparty/codemirror.js',
+                        'lib/js/thirdparty/snackbar.js'
                     ]
                 ],
                 dest : 'js/freeboard.thirdparty.js'

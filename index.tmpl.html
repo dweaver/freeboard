@@ -45,11 +45,17 @@
               freeboard.murano = murano;
               freeboard.initialize(true);
 
-              // TODO: show an error if product and device are not defined
-              var product = getParameterByName('product') || 'qsn4ggiq04er8uxr';
-              var device = getParameterByName('device') || '00000002';
-              console.log('product: ', product);
-              console.log('device: ', device);
+              var product = getParameterByName('product');// || 'qsn4ggiq04er8uxr';
+              var device = getParameterByName('device');// || '00000002';
+
+              if (!product || !device) {
+                console.log('Missing product=<product-id> or device=<device-identity> in URL');
+                freeboard.showNotification(
+                  'No device specified. Please link to a device from <a href="' + UI_URL + '">Murano</a>.');
+                $('#datasources').hide();
+                return;
+              }
+              console.log('product: ', product, 'device: ', device);
 
               murano.get_device_rid_by_identity(product, device, function(err, device_rid) {
                 freeboard.loadDashboardFromCloud(product, device_rid, function(err) {
@@ -192,6 +198,9 @@
 			<li class="column-tool add" data-bind="click: addGridColumnRight"><span class="column-icon left"></span><i class="icon-arrow-right icon-white"></i></li>
 		</ul>
 	</div>
+  <div class="board-notification">
+    <div class="message"></div>
+  </div>
     <div id="toggle-header" data-bind="click: toggleEditing">
         <i id="toggle-header-icon" class="icon-wrench icon-white"></i></div>
 </header>

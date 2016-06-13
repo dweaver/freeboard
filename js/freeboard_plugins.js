@@ -3118,7 +3118,22 @@ var freeboard = (function()
 		showDeveloperConsole : function()
 		{
 			developerConsole.showDeveloperConsole();
-		}
+		},
+    showSnackbar: function(message, options) {
+      $.snackbar({
+        content: 'Dashboard requires a product ID and device identity. <a href="' + UI_URL + '">Click here to return to Murano</a>',
+        timeout: 30000,
+      });
+    },
+    showNotification: function(message) {
+      $('.board-notification').addClass('active');
+      $('.board-notification .message').html(message);
+    },
+    hideNotification: function() {
+      $('.board-notification').removeClass('active');
+      $('.board-notification .message').html('');
+    }
+
 	};
 }());
 
@@ -4946,13 +4961,13 @@ freeboard.loadDatasourcePlugin({
 				name          : "on_value",
 				display_name  : "On Value",
 				type          : "text",
-        default_value : "on"
+        default_value : "1"
 			},
 			{
 				name          : "off_value",
 				display_name  : "Off Value",
 				type          : "text",
-        default_value : "off"
+        default_value : "0"
 			}
 		],
 		// Same as with datasource plugin, but there is no updateCallback parameter in this case.

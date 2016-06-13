@@ -3118,7 +3118,22 @@ var freeboard = (function()
 		showDeveloperConsole : function()
 		{
 			developerConsole.showDeveloperConsole();
-		}
+		},
+    showSnackbar: function(message, options) {
+      $.snackbar({
+        content: 'Dashboard requires a product ID and device identity. <a href="' + UI_URL + '">Click here to return to Murano</a>',
+        timeout: 30000,
+      });
+    },
+    showNotification: function(message) {
+      $('.board-notification').addClass('active');
+      $('.board-notification .message').html(message);
+    },
+    hideNotification: function() {
+      $('.board-notification').removeClass('active');
+      $('.board-notification .message').html('');
+    }
+
 	};
 }());
 
