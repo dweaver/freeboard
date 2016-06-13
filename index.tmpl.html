@@ -41,66 +41,62 @@
               }
             }
 
+            function create_default_dashboard(product_id, device_id, device_rid, dataports) {
+              // add dataports for this device as datasources
+              _.each(dataports, function(dataport) {
+                freeboard.addDatasource({
+                  type:"muranoDataport",
+                  settings:{
+                    name: dataport.alias,
+                    product_id: product,
+                    device_id: device_id,
+                    device_rid: device_rid,
+                    dataport_alias: dataport.alias
+                    }
+                });
+              });
+            }
+
             function initialize_app(murano) {
               freeboard.murano = murano;
+              // TODO: should this be moved down to after connection?
               freeboard.initialize(true);
 
-              var product = getParameterByName('product');// || 'qsn4ggiq04er8uxr';
-              var device = getParameterByName('device');// || '00000002';
+              var product_id = getParameterByName('product');// || 'qsn4ggiq04er8uxr';
+              var device_id = getParameterByName('device');// || '00000002';
 
-              if (!product || !device) {
+              if (!product_id || !device_id) {
                 console.log('Missing product=<product-id> or device=<device-identity> in URL');
                 freeboard.showNotification(
                   'No device specified. Please link to a device from <a href="' + UI_URL + '">Murano</a>.');
                 $('#datasources').hide();
                 return;
               }
-              console.log('product: ', product, 'device: ', device);
+              console.log('product_id: ', product_id, 'device_id: ', device_id);
 
-              murano.get_device_rid_by_identity(product, device, function(err, device_rid) {
-                freeboard.loadDashboardFromCloud(product, device_rid, function(err) {
-                  var loadedDashboard = false;
+              murano.connect(product_id, device_id, function(err, device_rid, dataports) {
+                if (err) {
+                  return console.log('Error connecting websocket', err);
+                }
+                freeboard.loadDashboardFromCloud(product_id, device_rid, function(err) {
                   if (err) {
                     console.log('No saved device dashboard found. ' + 
                       'Initializing a new one. (', err, ')');
+                    create_default_dashboard(product_id, device_rid, dataports);
                   } else {
                     console.log('Loaded saved device dashboard.');
-                    loadedDashboard = true;
                   }
-                  // add freeboard datasources for each dataport
-                  murano.get_device_dataports(product, device_rid, function(err, dataports) {
-                    // connect websocket
-                    murano.connect(product, device_rid, _.pluck(dataports, 'alias'), function(err) {
-                      if (err) {
-                        return console.log('Error connecting websocket', err);
-                      }
-                      if (!loadedDashboard) {
-                        // add dataports for this device as datasources
-                        _.each(dataports, function(dataport) {
-                          freeboard.addDatasource({
-                            type:"muranoDataport",
-                            settings:{
-                              name: dataport.alias,
-                              product_id: product,
-                              device_rid: device_rid,
-                              dataport_alias: dataport.alias
-                              }
-                          });
-                        });
-                      }
-                    });
-                  });
                 });
               });
+            }
 
-              var hashpattern = window.location.hash.match(/(&|#)source=([^&]+)/);
-              if (hashpattern !== null) {
-                  $.getJSON(hashpattern[2], function(data) {
-                      freeboard.loadDashboard(data, function() {
-                          freeboard.setEditing(false);
-                      });
-                  });
-              }
+            var hashpattern = window.location.hash.match(/(&|#)source=([^&]+)/);
+            if (hashpattern !== null) {
+                $.getJSON(hashpattern[2], function(data) {
+                    freeboard.loadDashboard(data, function() {
+                        freeboard.setEditing(false);
+                    });
+                });
             }
 
             function go_login() {

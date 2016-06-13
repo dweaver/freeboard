@@ -2488,3 +2488,8 @@ input.cmn-toggle-round-flat:checked + label:after {
   width: 50%;
   margin: 0 auto; 
 }
+
+.form-value input:disabled {
+  color: #8b8b8b;
+  border: none;
+}

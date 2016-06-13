@@ -1481,7 +1481,11 @@ PluginEditor = function(jsEditor, valueEditor)
 				// Set a default value if one doesn't exist
 				if(!_.isUndefined(settingDef.default_value) && _.isUndefined(currentSettingsValues[settingDef.name]))
 				{
-					currentSettingsValues[settingDef.name] = settingDef.default_value;
+          if (_.isFunction(settingDef.default_value)) {
+            currentSettingsValues[settingDef.name] = settingDef.default_value();
+          } else {
+            currentSettingsValues[settingDef.name] = settingDef.default_value;
+          }
 				}
 
 				var displayName = settingDef.name;
@@ -1712,6 +1716,10 @@ PluginEditor = function(jsEditor, valueEditor)
 									newSettings.settings[settingDef.name] = $(this).val();
 								}
 							});
+
+              if (_.has(settingDef, 'configurable') && !settingDef.configurable) {
+                input.prop('disabled', true);
+              }
 
 							if(settingDef.name in currentSettingsValues)
 							{

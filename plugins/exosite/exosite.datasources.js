@@ -69,13 +69,37 @@
 				name: "product_id",
 				display_name: "Product Identifier",
 				"description": "Note: Dashboards are limited to a single product specified in URL",
-				type: "text"
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.product_id : ''
+        }
+			},
+			{
+				name: "device_id",
+				display_name: "Device Identity",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.device_id : ''
+        }
 			},
 			{
 				name: "device_rid",
-				display_name: "Device Identity",
+				display_name: "Device RID",
 				"description": "Note: Dashboards are also limited to a single device specified in URL",
-				type: "text"
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.device_rid : ''
+        }
 			},
 			{
 				name: "dataport_alias",
@@ -87,6 +111,5 @@
 		newInstance: function (settings, newInstanceCallback, updateCallback) {
 			newInstanceCallback(new muranoDatasource(settings, updateCallback));
 		}
-	});
-
+	}); 
 }());

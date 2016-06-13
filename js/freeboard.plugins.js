@@ -1772,13 +1772,37 @@ freeboard.loadDatasourcePlugin({
 				name: "product_id",
 				display_name: "Product Identifier",
 				"description": "Note: Dashboards are limited to a single product specified in URL",
-				type: "text"
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.product_id : ''
+        }
+			},
+			{
+				name: "device_id",
+				display_name: "Device Identity",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.device_id : ''
+        }
 			},
 			{
 				name: "device_rid",
-				display_name: "Device Identity",
+				display_name: "Device RID",
 				"description": "Note: Dashboards are also limited to a single device specified in URL",
-				type: "text"
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.device_rid : ''
+        }
 			},
 			{
 				name: "dataport_alias",
@@ -1790,8 +1814,7 @@ freeboard.loadDatasourcePlugin({
 		newInstance: function (settings, newInstanceCallback, updateCallback) {
 			newInstanceCallback(new muranoDatasource(settings, updateCallback));
 		}
-	});
-
+	}); 
 }());
 
 (function () {
@@ -2047,6 +2070,115 @@ const Murano = function(options) {
     });
   };
 
+  // set up a websocket connection to a device
+  function setup_websocket(product_id, device_rid, dataport_aliases, callback) {
+    // Create 1P token with read and write permission for specified dataports
+    var permissions = {};
+    permissions[device_rid] = {
+      read: dataport_aliases, 
+      write: dataport_aliases,
+      subscribe: dataport_aliases
+    };
+    RPC(product_id, {auth: {client_id: device_rid}, calls: [{
+      id: 0, 
+      procedure: 'grant',
+      arguments: [
+        device_rid,
+        permissions,
+        {ttl: ONEP_TOKEN_TTL_SECONDS}
+      ]}]},
+      function(err, result) {
+        if (result[0].status !== 'ok') {
+          return callback ('Bad status from RPC: ' + result[0].status); 
+        }
+        var onep_token = result[0].result;
+        console.log('onep_token', onep_token);
+        // create websocket and authenticate 
+        _reconnect = function(callback) {
+          _socket = new WebSocket(websocket_url);
+
+          _socket.onopen = function(evt) {
+            switch(_socket.readyState) {
+              case WebSocket.CONNECTING: 
+                console.log('CONNECTING The connection is not yet open.');
+                break;
+              case WebSocket.OPEN:
+                console.log('OPEN The connection is open and ready to communicate.');
+                break;
+              case WebSocket.CLOSING:
+                console.log('CLOSING The connection is in the process of closing.');
+                break;
+              case WebSocket.CLOSED:
+                console.log('CLOSED The connection is closed or couldn\'t be opened.');
+                break;
+            }
+            console.log('websocket connection opened. Sending auth...');
+            _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
+            _socket.onmessage = function(evt) {
+              // disable message handling until we're ready to 
+              // register the real message handler
+              _socket.onmessage = function(evt) {};
+
+              console.log(evt);
+              var response = JSON.parse(evt.data);
+              if (response.status !== 'ok') {
+                console.log('error authenticating websocket', evt);
+                callback(response.status);
+              }
+
+              // websocket is open and authed
+              // current time UTC. TODO: set this to the timestamp of last datapoint
+              // for each device. If the browser's clock is off from the server this 
+              // could cause the last point to be displayed twice.
+              var since = Math.floor(new Date().getTime() / 1000);
+
+              console.log('websocket is open and authed. Subscribing to device RID', device_rid);
+              _.each(dataport_aliases, function(dataport_alias) {
+                var subscription_id = dataport_alias;
+                console.log('subscribing to', dataport_alias);
+                _socket.send(JSON.stringify({calls: [{
+                  id: dataport_alias,
+                  procedure: 'subscribe',
+                  arguments: [
+                    {alias: dataport_alias, rid: device_rid},
+                    {
+                      since: since,
+                      /*subs_id: subscription_id*/
+                    }
+                  ]
+                }]}));
+              });
+              _socket.onmessage = function(evt) {
+                console.log('_socket.onmessage', evt);
+                var data = JSON.parse(evt.data);
+                _.each(data, function(response) {
+                  if (response.status === 'ok') {
+                    if (_callbacks[response.id] && response.hasOwnProperty('result')) {
+                      _callbacks[response.id](response.result[1]);
+                    }
+                  } else {
+                    console.log('Response error status', repsonse.status);
+                  }
+                });
+              }
+              callback(null);
+            }
+          }
+          _socket.onclose = function() {
+            console.log('websocket closed. Reconnecting...');
+            _reconnect(function(err) {
+              if (err) {
+                callback('_reconnect error', err);
+              }
+            });
+          }
+        }
+        _reconnect(function (err) {
+          callback(err);
+        });
+      });
+  }
+
   var _socket = null;
   var _reconnect = null;
   // callback functions for each dataport alias
@@ -2062,124 +2194,37 @@ const Murano = function(options) {
       if (me.product_id && me.device_rid) {
         device = {
           product_id: me.product_id,
-          device_rid: me.device_rid
+          device_rid: me.device_rid,
+          device_id: me.device_id
         };
       }
       return device;
     },
     /* create token and connect websocket to 1P. This websocket
        is shared by all datasources for this device.  */
-    connect: function(product_id, device_rid, dataport_aliases, callback) {
-
+    connect: function(product_id, device_id, callback) {
       // save the current product and device IDs
       me.product_id = product_id;
-      me.device_rid = device_rid;
+      me.device_id = device_id;
 
-      // Create 1P token with read and write permission for specified dataports
-      var permissions = {};
-      permissions[device_rid] = {
-        read: dataport_aliases, 
-        write: dataport_aliases,
-        subscribe: dataport_aliases
-      };
-      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
-        id: 0, 
-        procedure: 'grant',
-        arguments: [
-          device_rid,
-          permissions,
-          {ttl: ONEP_TOKEN_TTL_SECONDS}
-        ]}]},
-        function(err, result) {
-          if (result[0].status !== 'ok') {
-            return callback ('Bad status from RPC: ' + result[0].status); 
+      me.get_device_rid_by_identity(product_id, device_id, function(err, device_rid) {
+        if (err) {
+          return callback(err);
+        }
+        // save the RID
+        me.device_rid = device_rid;
+
+        // add freeboard datasources for each dataport
+        me.get_device_dataports(product_id, device_rid, function(err, dataports) {
+          if (err) {
+            return callback(err);
           }
-          var onep_token = result[0].result;
-          console.log('onep_token', onep_token);
-          // create websocket and authenticate 
-          _reconnect = function(callback) {
-            _socket = new WebSocket(websocket_url);
-
-            _socket.onopen = function(evt) {
-              switch(_socket.readyState) {
-                case WebSocket.CONNECTING: 
-                  console.log('CONNECTING The connection is not yet open.');
-                  break;
-                case WebSocket.OPEN:
-                  console.log('OPEN The connection is open and ready to communicate.');
-                  break;
-                case WebSocket.CLOSING:
-                  console.log('CLOSING The connection is in the process of closing.');
-                  break;
-                case WebSocket.CLOSED:
-                  console.log('CLOSED The connection is closed or couldn\'t be opened.');
-                  break;
-              }
-              console.log('websocket connection opened. Sending auth...');
-              _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
-              _socket.onmessage = function(evt) {
-                // disable message handling until we're ready to 
-                // register the real message handler
-                _socket.onmessage = function(evt) {};
-
-                console.log(evt);
-                var response = JSON.parse(evt.data);
-                if (response.status !== 'ok') {
-                  console.log('error authenticating websocket', evt);
-                  callback(response.status);
-                }
-
-                // websocket is open and authed
-                // current time UTC. TODO: set this to the timestamp of last datapoint
-                // for each device. If the browser's clock is off from the server this 
-                // could cause the last point to be displayed twice.
-                var since = Math.floor(new Date().getTime() / 1000);
-
-                console.log('websocket is open and authed. Subscribing to device RID', device_rid);
-                _.each(dataport_aliases, function(dataport_alias) {
-                  var subscription_id = dataport_alias;
-                  console.log('subscribing to', dataport_alias);
-                  _socket.send(JSON.stringify({calls: [{
-                    id: dataport_alias,
-                    procedure: 'subscribe',
-                    arguments: [
-                      {alias: dataport_alias, rid: device_rid},
-                      {
-                        since: since,
-                        /*subs_id: subscription_id*/
-                      }
-                    ]
-                  }]}));
-                });
-                _socket.onmessage = function(evt) {
-                  console.log('_socket.onmessage', evt);
-                  var data = JSON.parse(evt.data);
-                  _.each(data, function(response) {
-                    if (response.status === 'ok') {
-                      if (_callbacks[response.id] && response.hasOwnProperty('result')) {
-                        _callbacks[response.id](response.result[1]);
-                      }
-                    } else {
-                      console.log('Response error status', repsonse.status);
-                    }
-                  });
-                }
-                callback(null);
-              }
-            }
-            _socket.onclose = function() {
-              console.log('websocket closed. Reconnecting...');
-              _reconnect(function(err) {
-                if (err) {
-                  callback('_reconnect error', err);
-                }
-              });
-            }
-          }
-          _reconnect(function (err) {
-            callback(err);
+          // set up websocket
+          setup_websocket(product_id, device_rid, _.pluck(dataports, 'alias'), function(err) {
+            callback(err, device_rid, dataports);            
           });
         });
+      });
     },
     /* disconnect websocket and drop token */
     disconnect: function() {
