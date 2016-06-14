@@ -1929,6 +1929,11 @@ h2.title {
 	margin-top: 8px;
 }
 
+.form-value input:disabled {
+  color: #8b8b8b;
+  border: none;
+}
+
 .table-operation {
 	font-size: 11px;
 	padding-left: 5px;
@@ -2489,11 +2494,6 @@ input.cmn-toggle-round-flat:checked + label:after {
   margin: 0 auto; 
 }
 
-.form-value input:disabled {
-  color: #8b8b8b;
-  border: none;
-}
-
 #device-nav {
   padding-bottom: 20px;
 }
@@ -2509,11 +2509,9 @@ input.cmn-toggle-round-flat:checked + label:after {
   font-size: 10px;
   text-align: left;
 }
-
 #device-nav th:first-of-type {
   padding-left: 10px;
 }
-
 #device-nav td {
   width: 175px;
 }

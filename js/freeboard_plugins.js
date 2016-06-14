@@ -592,12 +592,11 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		a.click();
 	}
 
-  this.saveDashboardToCloudClicked = function(_thisref, event)
-	{
+  this.saveDashboardToCloud = function() {
     var blob = JSON.stringify(self.serialize());
     freeboard.murano.save_dashboard(
-      self.productId(),
-      self.deviceRid(),
+      self.muranoProductId(),
+      self.muranoDeviceRid(),
       blob, 
       function(err, result) {
         if (err) {
@@ -605,6 +604,11 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
         }
         $('#cloud-save-notification').html('(last saved at ' + formatAMPM() + ')');
     });
+  }
+
+  this.saveDashboardToCloudClicked = function(_thisref, event)
+	{
+    self.saveDashboardToCloud();
 	}
 
   this.loadDashboardFromCloud = function(product_id, device_rid, callback) {
@@ -622,7 +626,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 
   this.loadDashboardFromCloudClicked = function(_thisref, event)
   {
-    self.loadDashboardFromCloud(self.productId(), deviceRid(), function(err) {
+    self.loadDashboardFromCloud(self.muranoProductId(), muranoDeviceRid(), function(err) {
       if (err) {
         console.log('Error loading dashboard from cloud', err);
       }
@@ -2851,6 +2855,8 @@ var freeboard = (function()
 								viewModel.settings(newSettings.settings);
 							}
 						}
+            console.log('Saving dashboard automatically');
+            theFreeboardModel.saveDashboardToCloud();
 					});
 				}
 			});
@@ -4925,7 +4931,7 @@ freeboard.loadDatasourcePlugin({
 
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
-		"display_name": "Murano Device Dataport",
+		"display_name": "Murano Device Resource",
 		"external_scripts": null, // NOTE: empty list causes problems
 		"settings": [
 			{

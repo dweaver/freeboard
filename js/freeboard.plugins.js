@@ -1767,7 +1767,7 @@ freeboard.loadDatasourcePlugin({
 
 	freeboard.loadDatasourcePlugin({
 		"type_name": "muranoDataport",
-		"display_name": "Murano Device Dataport",
+		"display_name": "Murano Device Resource",
 		"external_scripts": null, // NOTE: empty list causes problems
 		"settings": [
 			{
