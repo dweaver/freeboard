@@ -189,7 +189,6 @@ const Murano = function(options) {
                 }]}));
               });
               _socket.onmessage = function(evt) {
-                console.log('_socket.onmessage', evt);
                 var data = JSON.parse(evt.data);
                 _.each(data, function(response) {
                   if (response.status === 'ok') {
@@ -364,12 +363,10 @@ const Murano = function(options) {
     },
     // register callback to call when data comes in on dataport_alias
     listen_for: function(product_id, device_rid, dataport_alias, callback) {
-      console.log('listen_for', dataport_alias);
       _callbacks[dataport_alias] = callback;
     },
     // unregister callback for data on dataport_alias
     stop_listening_for: function(product_id, device_rid, dataport_alias) {
-      console.log('stop_listening_for', dataport_alias);
       _callbacks[dataport_alias] = null;
     },
     /*
@@ -378,7 +375,6 @@ const Murano = function(options) {
     get_device_rid_by_identity: function(product_id, identity, callback) {
       var url = URL_base + product_id + URL_provision;
       provision_get(product_id, '/manage/model/' + product_id + '/' + identity, function(err, result) {
-        console.log('provision /manage/model', err, result);
         if (err) { return callback(err); }
         callback(err, result.split(',')[1]);
       });
@@ -395,7 +391,6 @@ const Murano = function(options) {
         ]},
         function(err, result) {
           console.log('result from dataports RPC:');
-          console.log(err, result);
           if (err) { return callback(err); }
           if (result[0].status !== 'ok' || result[1].status !== 'ok') { 
             return callback ('Bad status from RPC in get_device_dataports'); 

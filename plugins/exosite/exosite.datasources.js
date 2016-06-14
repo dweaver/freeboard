@@ -18,7 +18,9 @@
           console.log('updateNow point error', currentSettings.dataport_alias, err);
 				} else {
           if (point) {
-            onNewData(point[1]);
+            // convert to string since some widgets can't 
+            // deal with integers
+            onNewData(point[1] + '');
           }
 				}
 			});

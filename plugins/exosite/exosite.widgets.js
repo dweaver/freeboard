@@ -121,6 +121,7 @@
 		self.onCalculatedValueChanged = function(settingName, newValue)
 		{
       if (settingName === 'value') {
+        newValue = newValue + '';
         var switchElement = $("#cmn-toggle-" + switch_id);
         if (newValue === currentSettings.on_value) {
           switchElement.prop( "checked", true);

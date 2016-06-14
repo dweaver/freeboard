@@ -2493,3 +2493,28 @@ input.cmn-toggle-round-flat:checked + label:after {
   color: #8b8b8b;
   border: none;
 }
+
+#device-nav {
+  padding-bottom: 20px;
+}
+#device-nav table {
+  width: 100%;
+}
+#device-nav tr {
+}
+#device-nav td {
+  color: #ffffff;
+}
+#device-nav th {
+  font-size: 10px;
+  text-align: left;
+}
+
+#device-nav th:first-of-type {
+  padding-left: 10px;
+}
+
+#device-nav td {
+  width: 175px;
+}
+

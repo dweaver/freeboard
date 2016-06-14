@@ -8,6 +8,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="viewport" content = "width = device-width, initial-scale = 1, user-scalable = no" />
     <link href='https://fonts.googleapis.com/css?family=Roboto:400,300' rel='stylesheet' type='text/css'> 
+    <script type="text/javascript">
+      var API_URL = 'https://biz-internal-api.exosite-dev.com';
+      var UI_OLD_URL = 'https://iot.exosite-dev.com/oldui';
+      var UI_URL = 'https://iot.exosite-dev.com';
+      var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
+    </script>
 <!-- @if NODE_ENV == 'DEVELOPMENT_LOCAL' -->
     <link href="css/freeboard.css" rel="stylesheet" />
     <script src="js/freeboard.thirdparty.js"></script>
@@ -22,9 +28,6 @@
       head.js("js/freeboard_plugins.min.js",
       function() {
 <!-- @endif -->
-        var API_URL = 'https://biz-internal-api.exosite-dev.com';
-        var UI_URL = 'https://iot.exosite-dev.com/oldui';
-        var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
         // *** Load more plugins here ***
         $(function() { //DOM Ready
             function getParameterByName(name) {
@@ -58,8 +61,8 @@
             }
 
             function initialize_app(murano) {
-              freeboard.murano = murano;
-              // TODO: should this be moved down to after connection?
+              freeboard.setMurano(murano);
+
               freeboard.initialize(true);
 
               var product_id = getParameterByName('product');// || 'qsn4ggiq04er8uxr';
@@ -68,16 +71,19 @@
               if (!product_id || !device_id) {
                 console.log('Missing product=<product-id> or device=<device-identity> in URL');
                 freeboard.showNotification(
-                  'No device specified. Please link to a device from <a href="' + UI_URL + '">Murano</a>.');
+                  'No device specified. Please link to a device from <a href="' + UI_OLD_URL + '">Murano</a>.');
                 $('#datasources').hide();
                 return;
               }
               console.log('product_id: ', product_id, 'device_id: ', device_id);
 
+              freeboard.setDevice(product_id, device_id);
               murano.connect(product_id, device_id, function(err, device_rid, dataports) {
                 if (err) {
                   return console.log('Error connecting websocket', err);
                 }
+                freeboard.setDeviceRid(device_rid);
+
                 freeboard.loadDashboardFromCloud(product_id, device_rid, function(err) {
                   if (err) {
                     console.log('No saved device dashboard found. ' + 
@@ -102,7 +108,7 @@
             function go_login() {
               // TODO: encodeURIComponent(window.location.href), at the moment bizui 
               // does not decode it so this works better
-              window.location = UI_URL + '/login?redirectTo=' + window.location.href;
+              window.location = UI_OLD_URL + '/login?redirectTo=' + window.location.href;
             }
 
             var murano = new Murano({
@@ -135,8 +141,30 @@
         <div id="admin-menu">
             <div id="board-tools">
                 <h1 class="logo-dashboard"><img class="logo" src="img/exosite-logo.png"> Dashboard</h1>
+                <div id="device-nav">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>PRODUCT</th>
+                        <th>DEVICE</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <a data-bind="attr: { href: muranoDeviceUrl }">
+                            <span class="text-button" data-bind="text: muranoProductId">-</span>
+                          </a>
+                        </td>
+                        <td>
+                          <span data-bind="text: muranoDeviceId">-</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
                 <div id="board-actions">
-                    <ul class="board-toolbar vertical">
+                    <ul class="board-toolbar horizontal">
                         <li id="add-pane" data-bind="click: createPane"><i class="icon-plus icon-white"></i><label>Add Pane</label></li>
                         <li data-bind="click: loadDashboardFromLocalFile"><i id="full-screen-icon" class="icon-folder-open icon-white"></i><label id="full-screen">IMPORT</label></li>
                         <li><i class="icon-download-alt icon-white"></i>
@@ -152,7 +180,7 @@
                 </div>
             </div>
             <div id="datasources">
-                <h2 class="title">DATASOURCES</h2>
+                <h2 class="title">Resources</h2>
 
                 <div class="datasource-list-container">
                     <table class="table table-condensed sub-table" id="datasources-list" data-bind="if: datasources().length">

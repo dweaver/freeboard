@@ -301,6 +301,14 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		}
 	});
 
+  this.muranoProductId = ko.observable();
+  this.muranoDeviceId = ko.observable();
+  this.muranoDeviceRid = ko.observable();
+  this.muranoDeviceUrl = ko.computed(function() {
+    // TODO: when device URL is available, set it here
+    return UI_URL + '/product/' + self.muranoProductId();
+  });
+
 	this.header_image = ko.observable();
 	this.plugins = ko.observableArray();
 	this.datasources = ko.observableArray();
@@ -586,14 +594,10 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 
   this.saveDashboardToCloudClicked = function(_thisref, event)
 	{
-    // TODO: can I avoid using freeboard global?
-    var device = freeboard.murano.get_connected_device();
-    var product_id = device.product_id;
-    var device_rid = device.device_rid;
     var blob = JSON.stringify(self.serialize());
     freeboard.murano.save_dashboard(
-      product_id,
-      device_rid,
+      self.productId(),
+      self.deviceRid(),
       blob, 
       function(err, result) {
         if (err) {
@@ -618,11 +622,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 
   this.loadDashboardFromCloudClicked = function(_thisref, event)
   {
-    // TODO: can I avoid using freeboard global?
-    var device = freeboard.murano.get_connected_device();
-    var product_id = device.product_id;
-    var device_rid = device.device_rid;
-    self.loadDashboardFromCloud(product_id, device_rid, function(err) {
+    self.loadDashboardFromCloud(self.productId(), deviceRid(), function(err) {
       if (err) {
         console.log('Error loading dashboard from cloud', err);
       }
@@ -2718,7 +2718,7 @@ var freeboard = (function()
 			if(options.type == 'datasource')
 			{
 				types = datasourcePlugins;
-				title = "Datasource";
+				title = "Resource";
 			}
 			else if(options.type == 'widget')
 			{
@@ -3140,12 +3140,698 @@ var freeboard = (function()
     hideNotification: function() {
       $('.board-notification').removeClass('active');
       $('.board-notification .message').html('');
+    },
+    setMurano: function(murano) {
+      freeboard.murano = murano;
+    },
+    setDevice: function(product_id, device_id) {
+      theFreeboardModel.muranoProductId(product_id);
+      theFreeboardModel.muranoDeviceId(device_id);
+    },
+    setDeviceRid: function(device_rid) {
+      theFreeboardModel.muranoDeviceRid(device_rid);
     }
-
 	};
 }());
 
 $.extend(freeboard, jQuery.eventEmitter);
+
+(function () {
+
+	var muranoDatasource = function (settings, updateCallback) {
+		var self = this;
+		var currentSettings = settings;
+
+		function onNewData(point) {
+			updateCallback(point);
+		}
+
+		this.updateNow = function () {
+			freeboard.murano.get_latest_point_for(
+          currentSettings.product_id, 
+          currentSettings.device_rid, 
+          currentSettings.dataport_alias, function (err, point) {
+				if (err) {
+					//onNewData({});
+          console.log('updateNow point error', currentSettings.dataport_alias, err);
+				} else {
+          if (point) {
+            // convert to string since some widgets can't 
+            // deal with integers
+            onNewData(point[1] + '');
+          }
+				}
+			});
+		}
+
+    this.writeNow = function(value) {
+      freeboard.murano.write_value_for(
+        currentSettings.product_id,
+        currentSettings.device_rid,
+        currentSettings.dataport_alias, 
+        value, function (err) {
+          if (err) {
+            // TODO: display error to UI
+            console.log('Error writing to ' + currentSettings.dataport_alias, err);
+          } 
+        });
+    }
+
+		this.onDispose = function () {
+		}
+
+		this.onSettingsChanged = function (newSettings) {
+			freeboard.murano.stop_listening_for(
+          currentSettings.product_id, 
+          currentSettings.device_rid, 
+          currentSettings.dataport_alias);
+
+			currentSettings = newSettings;
+
+			freeboard.murano.listen_for(
+          currentSettings.product_id, 
+          currentSettings.device_rid,
+          currentSettings.dataport_alias,
+          function (point) {
+            onNewData(point);
+          });
+		}
+
+		self.onSettingsChanged(settings);
+	};
+
+	freeboard.loadDatasourcePlugin({
+		"type_name": "muranoDataport",
+		"display_name": "Murano Device Dataport",
+		"external_scripts": null, // NOTE: empty list causes problems
+		"settings": [
+			{
+				name: "product_id",
+				display_name: "Product Identifier",
+				"description": "Note: Dashboards are limited to a single product specified in URL",
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.product_id : ''
+        }
+			},
+			{
+				name: "device_id",
+				display_name: "Device Identity",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.device_id : ''
+        }
+			},
+			{
+				name: "device_rid",
+				display_name: "Device RID",
+				"description": "Note: Dashboards are also limited to a single device specified in URL",
+				type: "text",
+        // note: this is only supported for type: text
+        configurable: false,
+        default_value: function() {
+          var device = freeboard.murano.get_connected_device();
+          return device ? device.device_rid : ''
+        }
+			},
+			{
+				name: "dataport_alias",
+				display_name: "Dataport Alias",
+				"description": "Example: food_level",
+				type: "text"
+			}
+		],
+		newInstance: function (settings, newInstanceCallback, updateCallback) {
+			newInstanceCallback(new muranoDatasource(settings, updateCallback));
+		}
+	}); 
+}());
+
+(function () {
+	// On/Off switch widget
+	freeboard.loadWidgetPlugin({
+		// Same stuff here as with datasource plugin.
+		"type_name"   : "toggle_switch",
+		"display_name": "Toggle Switch",
+    "description" : "Writes on/off values to a dataport",
+		// **external_scripts** : Any external scripts that should be loaded before the plugin instance is created.
+		"external_scripts": null,
+		// **fill_size** : If this is set to true, the widget will fill be allowed to fill the entire space given it, otherwise it will contain an automatic padding of around 10 pixels around it.
+		"fill_size" : false,
+		"settings"    : [
+			{
+				name          : "title",
+				display_name  : "title",
+				type          : "text"
+			},
+      {
+        name          : "value",
+        display_name  : "Value",
+        type          : "calculated"
+      },
+			{
+				name          : "on_value",
+				display_name  : "On Value",
+				type          : "text",
+        default_value : "1"
+			},
+			{
+				name          : "off_value",
+				display_name  : "Off Value",
+				type          : "text",
+        default_value : "0"
+			}
+		],
+		// Same as with datasource plugin, but there is no updateCallback parameter in this case.
+		newInstance   : function(settings, newInstanceCallback)
+		{
+			newInstanceCallback(new toggleSwitchWidgetPlugin(settings));
+		}
+	});
+
+	// ### Widget Implementation
+	//
+	// -------------------
+	// Here we implement the actual widget plugin. We pass in the settings;
+	var toggleSwitchWidgetPlugin = function(settings)
+	{
+		var self = this;
+		var currentSettings = settings;
+
+    // Returns a random integer between min (included) and max (excluded)
+    // Using Math.round() will give you a non-uniform distribution!
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+    var switch_id = getRandomInt(10000000, 99999999);
+
+		// Here we create an element to hold the text we're going to display. 
+    // We're going to set the value displayed in it below.
+    var widgetElement = $('<div></div>');
+		var titleElement = $('<h2 class="section-title tw-title tw-td"></h2>');
+    titleElement.text(settings.title);
+    var switchElement = $('<div class="toggle-switch"><input id="cmn-toggle-' + switch_id + '" class="cmn-toggle cmn-toggle-round-flat" type="checkbox"><label for="cmn-toggle-' + switch_id + '"></label></div>');
+
+		var myElement = widgetElement.append(titleElement).append(switchElement);
+
+    // handle switch changes
+    switchElement.find('input').click(function() {
+      var $this = $(this);
+      // $this contains a reference to the checkbox   
+      var valueToWrite = null;
+      if ($this.is(':checked')) {
+        valueToWrite = currentSettings.on_value;
+      } else {
+        valueToWrite = currentSettings.off_value;
+      }
+      // TODO: get datasource name from calculated value setting
+      // in a less brittle way (this is from WidgetModel)
+		  var datasourceRegex = new RegExp("datasources.([\\w_-]+)|datasources\\[['\"]([^'\"]+)", "g");
+      var matches = datasourceRegex.exec(currentSettings.value);
+      if (matches.length < 2) {
+        console.log('Unable to determine datasource name from value setting.');
+      } else {
+        var datasourceName = matches[1] || matches[2];
+
+        self.handleWidgetEvent({
+          type: 'write',
+          datasourceName: datasourceName,
+          value: valueToWrite
+        })
+      }
+    });
+
+		// **render(containerElement)** (required) : A public function we must implement that will be called when freeboard wants us to render the contents of our widget. The container element is the DIV that will surround the widget.
+		self.render = function(containerElement)
+		{
+			// Here we append our text element to the widget container element.
+			$(containerElement).append(myElement);
+		}
+
+		// **getHeight()** (required) : A public function we must implement that will be called when freeboard wants to know how big we expect to be when we render, and returns a height. This function will be called any time a user updates their settings (including the first time they create the widget).
+		//
+		// Note here that the height is not in pixels, but in blocks. A block in freeboard is currently defined as a rectangle that is fixed at 300 pixels wide and around 45 pixels multiplied by the value you return here.
+		//
+		// Blocks of different sizes may be supported in the future.
+		self.getHeight = function()
+		{
+      return 2;
+		}
+
+		// **onSettingsChanged(newSettings)** (required) : A public function we must implement that will be called when a user makes a change to the settings.
+		self.onSettingsChanged = function(newSettings)
+		{
+			// Normally we'd update our text element with the value we defined in the user settings above (the_text), but there is a special case for settings that are of type **"calculated"** -- see below.
+      titleElement.text(newSettings.title);
+			currentSettings = newSettings;
+		}
+
+		// **onCalculatedValueChanged(settingName, newValue)** (required) : A public function we must implement that will be called when a calculated value changes. Since calculated values can change at any time (like when a datasource is updated) we handle them in a special callback function here.
+		self.onCalculatedValueChanged = function(settingName, newValue)
+		{
+      if (settingName === 'value') {
+        newValue = newValue + '';
+        var switchElement = $("#cmn-toggle-" + switch_id);
+        if (newValue === currentSettings.on_value) {
+          switchElement.prop( "checked", true);
+        } else if (newValue === currentSettings.off_value) {
+          switchElement.prop( "checked", false);
+        } else {
+          console.log("Unexpected switch value " + newValue);
+        }
+      }
+		}
+
+		// **onDispose()** (required) : Same as with datasource plugins.
+		self.onDispose = function()
+		{
+		}
+	}
+}());
+
+/* Murano API client library
+ 
+ Example usage:
+  // instantiate Murano library
+  var murano = new Murano({
+    api_url: API_URL,
+    websocket_url: WEBSOCKET_URL,
+    error: function(code, options) {
+      // handle general errors here
+      if (code === murano.API_ERRORS.BAD_TOKEN) {
+        redirect_login();
+      } else {
+        console.log('UNKNOWN MURANO ERROR', code);
+      }
+    }
+  });
+  // get a API token for this browser session
+  murano.init(function(err) {
+    if (!err) {
+      return redirect_login();
+    }
+    // connect websocket
+    murano.connect(product_id, device_rid, dataport_aliases, function(err) {
+      if (err) {
+       return console.log('Error connecting websocket', err);
+      }
+    }
+  });
+*/
+
+'use strict';
+const Murano = function(options) {
+  var _token = null;
+  var api_url = options.api_url;
+  var websocket_url = options.websocket_url;
+  var error_fn = options.error;
+  var URL_base = api_url + "/api:1/product/";
+  var URL_rpc = "/proxy/onep:v1/rpc/process";
+  var URL_provision = "/proxy/provision"
+  var ONEP_TOKEN_TTL_SECONDS = 86400; // 24 hours
+
+  // make an ajax call to murano API, calling general error handler
+  // instead of options.error if the token is bad.
+  function ajax_token(options) {
+    var wrapped_error = options.error;
+    options.error = function(xhr, status, error) {
+      www_authenticate = xhr.getResponseHeader('www-authenticate');
+      if (xhr.status === 401 && www_authenticate && www_authenticate.substr(0,5) == "token") {
+        // token is invalid, so app needs to handle that
+        error_fn(me.API_ERRORS.BAD_TOKEN, {
+          original_handler: function() {
+            if (wrapped_error) {
+              wrapped_error(xhr, status, error);
+            }
+          }
+        });
+      } else {
+        if (wrapped_error) {
+          wrapped_error(xhr, status, error);
+        } 
+      }
+    };
+    options.headers = options.headers || {};
+    options.headers.authorization = 'Token ' + _token;
+    $.ajax(options);
+  }
+
+  function provision_get(product_id, path, callback) {
+    ajax_token({
+      url: URL_base + product_id + URL_provision + path,
+      method: "GET",
+        success: function (result) {
+        callback(null, result);
+      },
+      error: function (xhr, status, error) {
+        callback(error, xhr, status);
+      }
+    });
+  }
+  function RPC(product_id, request, callback) {
+    ajax_token({
+      url: URL_base + product_id + URL_rpc,
+      dataType: "JSON",
+      method: "POST",
+      data: JSON.stringify(request),
+      headers: {
+        'content-type': 'application/json; charset=utf-8'
+      },
+      beforeSend: function (xhr) {
+        try {
+          _.each(currentSettings.headers, function (header) {
+            var name = header.name;
+            var value = header.value;
+
+            if (!_.isUndefined(name) && !_.isUndefined(value)) {
+              xhr.setRequestHeader(name, value);
+            }
+          });
+        }
+        catch (e) {
+        }
+      },
+      success: function (result) {
+        // TODO: check for RPC errors
+        callback(null, result);
+      },
+      error: function (xhr, status, error) {
+        callback(error, xhr, status);
+      }
+    });
+  };
+
+  // set up a websocket connection to a device
+  function setup_websocket(product_id, device_rid, dataport_aliases, callback) {
+    // Create 1P token with read and write permission for specified dataports
+    var permissions = {};
+    permissions[device_rid] = {
+      read: dataport_aliases, 
+      write: dataport_aliases,
+      subscribe: dataport_aliases
+    };
+    RPC(product_id, {auth: {client_id: device_rid}, calls: [{
+      id: 0, 
+      procedure: 'grant',
+      arguments: [
+        device_rid,
+        permissions,
+        {ttl: ONEP_TOKEN_TTL_SECONDS}
+      ]}]},
+      function(err, result) {
+        if (result[0].status !== 'ok') {
+          return callback ('Bad status from RPC: ' + result[0].status); 
+        }
+        var onep_token = result[0].result;
+        console.log('onep_token', onep_token);
+        // create websocket and authenticate 
+        _reconnect = function(callback) {
+          _socket = new WebSocket(websocket_url);
+
+          _socket.onopen = function(evt) {
+            switch(_socket.readyState) {
+              case WebSocket.CONNECTING: 
+                console.log('CONNECTING The connection is not yet open.');
+                break;
+              case WebSocket.OPEN:
+                console.log('OPEN The connection is open and ready to communicate.');
+                break;
+              case WebSocket.CLOSING:
+                console.log('CLOSING The connection is in the process of closing.');
+                break;
+              case WebSocket.CLOSED:
+                console.log('CLOSED The connection is closed or couldn\'t be opened.');
+                break;
+            }
+            console.log('websocket connection opened. Sending auth...');
+            _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
+            _socket.onmessage = function(evt) {
+              // disable message handling until we're ready to 
+              // register the real message handler
+              _socket.onmessage = function(evt) {};
+
+              console.log(evt);
+              var response = JSON.parse(evt.data);
+              if (response.status !== 'ok') {
+                console.log('error authenticating websocket', evt);
+                callback(response.status);
+              }
+
+              // websocket is open and authed
+              // current time UTC. TODO: set this to the timestamp of last datapoint
+              // for each device. If the browser's clock is off from the server this 
+              // could cause the last point to be displayed twice.
+              var since = Math.floor(new Date().getTime() / 1000);
+
+              console.log('websocket is open and authed. Subscribing to device RID', device_rid);
+              _.each(dataport_aliases, function(dataport_alias) {
+                var subscription_id = dataport_alias;
+                console.log('subscribing to', dataport_alias);
+                _socket.send(JSON.stringify({calls: [{
+                  id: dataport_alias,
+                  procedure: 'subscribe',
+                  arguments: [
+                    {alias: dataport_alias, rid: device_rid},
+                    {
+                      since: since,
+                      /*subs_id: subscription_id*/
+                    }
+                  ]
+                }]}));
+              });
+              _socket.onmessage = function(evt) {
+                var data = JSON.parse(evt.data);
+                _.each(data, function(response) {
+                  if (response.status === 'ok') {
+                    if (_callbacks[response.id] && response.hasOwnProperty('result')) {
+                      _callbacks[response.id](response.result[1]);
+                    }
+                  } else {
+                    console.log('Response error status', repsonse.status);
+                  }
+                });
+              }
+              callback(null);
+            }
+          }
+          _socket.onclose = function() {
+            console.log('websocket closed. Reconnecting...');
+            _reconnect(function(err) {
+              if (err) {
+                callback('_reconnect error', err);
+              }
+            });
+          }
+        }
+        _reconnect(function (err) {
+          callback(err);
+        });
+      });
+  }
+
+  var _socket = null;
+  var _reconnect = null;
+  // callback functions for each dataport alias
+  var _callbacks = {};
+
+  // Usage: call init() to do sso, then connect() to connect websocket
+  const me = {
+    ERROR_CODES: {
+      BAD_TOKEN: 'BAD_TOKEN'
+    },
+    get_connected_device: function() {
+      var device = null;
+      if (me.product_id && me.device_rid) {
+        device = {
+          product_id: me.product_id,
+          device_rid: me.device_rid,
+          device_id: me.device_id
+        };
+      }
+      return device;
+    },
+    /* create token and connect websocket to 1P. This websocket
+       is shared by all datasources for this device.  */
+    connect: function(product_id, device_id, callback) {
+      // save the current product and device IDs
+      me.product_id = product_id;
+      me.device_id = device_id;
+
+      me.get_device_rid_by_identity(product_id, device_id, function(err, device_rid) {
+        if (err) {
+          return callback(err);
+        }
+        // save the RID
+        me.device_rid = device_rid;
+
+        // add freeboard datasources for each dataport
+        me.get_device_dataports(product_id, device_rid, function(err, dataports) {
+          if (err) {
+            return callback(err);
+          }
+          // set up websocket
+          setup_websocket(product_id, device_rid, _.pluck(dataports, 'alias'), function(err) {
+            callback(err, device_rid, dataports);            
+          });
+        });
+      });
+    },
+    /* disconnect websocket and drop token */
+    disconnect: function() {
+      _socket.onclose = function() {};
+      _socket.close()
+    },
+    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
+      ajax_token({
+        url: URL_base + product_id + '/dashboard/' + dashboard_id,
+        method: 'PUT',
+        data: dashboard_json,
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        }, 
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    load_dashboard: function(product_id, dashboard_id, callback) {
+      ajax_token({
+        url: URL_base + product_id + '/dashboard/' + dashboard_id,
+        method: 'GET',
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    init: function(callback) {
+      // get session token
+      // intentionally using $.ajax here instead of ajax_token
+      $.ajax(api_url + '/session', {
+        success: function(data) {
+          if (!data.hasOwnProperty('apitoken')) {
+            callback('NO_TOKEN');
+          } else {
+            // set token for module
+            _token = data.apitoken;
+            // Check that the token is not expired
+            // intentionally using $.ajax here instead of ajax_token
+            $.ajax(api_url + '/api:1/token/' + _token, {
+              success: function(data) {
+                callback(null);
+              },
+              error: function(xhr, status, error) {
+                console.log(status, error);
+                // /session returned a token, but that token is not good (expired?)
+                callback('EXPIRED_TOKEN');
+              }
+            });
+          }
+        },
+        error: function(xhr, status, error) {
+          console.log(status, error);
+          callback('FAIL_TOKEN');
+        },
+        xhrFields: {
+          withCredentials: true
+        }
+      });
+    },
+    get_latest_point_for: function(product_id, device_rid, dataport_alias, callback) {
+      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
+        id: 0, 
+        procedure: 'read',
+        arguments: [
+          {alias: dataport_alias},
+          {}
+        ]}]},
+        function(err, result) {
+          if (result[0].status !== 'ok') {
+            return callback ('Bad status from RPC: ' + result[0].status); 
+          }
+          callback(err, result[0].result[0]);
+        });
+    },
+    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
+      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
+        id: 0, 
+        procedure: 'write',
+        arguments: [
+          {alias: dataport_alias},
+          value 
+        ]}]},
+        function(err, result) {
+          if (result[0].status !== 'ok') {
+            return callback ('Bad status from RPC: ' + result[0].status); 
+          }
+          callback(err, result[0].result[0]);
+        });
+    },
+    // register callback to call when data comes in on dataport_alias
+    listen_for: function(product_id, device_rid, dataport_alias, callback) {
+      _callbacks[dataport_alias] = callback;
+    },
+    // unregister callback for data on dataport_alias
+    stop_listening_for: function(product_id, device_rid, dataport_alias) {
+      _callbacks[dataport_alias] = null;
+    },
+    /*
+     * Look up RID by serial number
+     */
+    get_device_rid_by_identity: function(product_id, identity, callback) {
+      var url = URL_base + product_id + URL_provision;
+      provision_get(product_id, '/manage/model/' + product_id + '/' + identity, function(err, result) {
+        if (err) { return callback(err); }
+        callback(err, result.split(',')[1]);
+      });
+    },
+    /*
+     * Get an array of dataports for device
+     * { rid: <rid>, alias: <alias> }
+     */
+    get_device_dataports: function(product_id, device_rid, callback) {
+      RPC(product_id, 
+        {auth: {client_id: device_rid}, calls: [
+          {id: 0, procedure: 'listing', arguments: [{alias: ''}, ['dataport'], {}]},
+          {id: 1, procedure: 'info', arguments: [{alias: ''}, {aliases: true}]}
+        ]},
+        function(err, result) {
+          console.log('result from dataports RPC:');
+          if (err) { return callback(err); }
+          if (result[0].status !== 'ok' || result[1].status !== 'ok') { 
+            return callback ('Bad status from RPC in get_device_dataports'); 
+          }
+          rids = result[0].result.dataport;
+          aliases = result[1].result.aliases;
+          var dataports = [];
+          _.each(rids, function(rid) {
+            if (_.has(aliases, rid)) {
+              dataports.push({
+                rid: rid,
+                alias: aliases[rid][0], // 0 - alias is first in alias array
+                info: null  // TODO: get info to determine dataport type
+              });
+            }
+          });
+          callback(err, dataports);
+        });
+    }
+  };
+
+  return me;
+}
 
 // ┌────────────────────────────────────────────────────────────────────┐ \\
 // │ F R E E B O A R D                                                  │ \\
@@ -4849,682 +5535,3 @@ freeboard.loadDatasourcePlugin({
     });
 
 }());
-
-(function () {
-
-	var muranoDatasource = function (settings, updateCallback) {
-		var self = this;
-		var currentSettings = settings;
-
-		function onNewData(point) {
-			updateCallback(point);
-		}
-
-		this.updateNow = function () {
-			freeboard.murano.get_latest_point_for(
-          currentSettings.product_id, 
-          currentSettings.device_rid, 
-          currentSettings.dataport_alias, function (err, point) {
-				if (err) {
-					//onNewData({});
-          console.log('updateNow point error', currentSettings.dataport_alias, err);
-				} else {
-          if (point) {
-            onNewData(point[1]);
-          }
-				}
-			});
-		}
-
-    this.writeNow = function(value) {
-      freeboard.murano.write_value_for(
-        currentSettings.product_id,
-        currentSettings.device_rid,
-        currentSettings.dataport_alias, 
-        value, function (err) {
-          if (err) {
-            // TODO: display error to UI
-            console.log('Error writing to ' + currentSettings.dataport_alias, err);
-          } 
-        });
-    }
-
-		this.onDispose = function () {
-		}
-
-		this.onSettingsChanged = function (newSettings) {
-			freeboard.murano.stop_listening_for(
-          currentSettings.product_id, 
-          currentSettings.device_rid, 
-          currentSettings.dataport_alias);
-
-			currentSettings = newSettings;
-
-			freeboard.murano.listen_for(
-          currentSettings.product_id, 
-          currentSettings.device_rid,
-          currentSettings.dataport_alias,
-          function (point) {
-            onNewData(point);
-          });
-		}
-
-		self.onSettingsChanged(settings);
-	};
-
-	freeboard.loadDatasourcePlugin({
-		"type_name": "muranoDataport",
-		"display_name": "Murano Device Dataport",
-		"external_scripts": null, // NOTE: empty list causes problems
-		"settings": [
-			{
-				name: "product_id",
-				display_name: "Product Identifier",
-				"description": "Note: Dashboards are limited to a single product specified in URL",
-				type: "text",
-        // note: this is only supported for type: text
-        configurable: false,
-        default_value: function() {
-          var device = freeboard.murano.get_connected_device();
-          return device ? device.product_id : ''
-        }
-			},
-			{
-				name: "device_id",
-				display_name: "Device Identity",
-				"description": "Note: Dashboards are also limited to a single device specified in URL",
-				type: "text",
-        // note: this is only supported for type: text
-        configurable: false,
-        default_value: function() {
-          var device = freeboard.murano.get_connected_device();
-          return device ? device.device_id : ''
-        }
-			},
-			{
-				name: "device_rid",
-				display_name: "Device RID",
-				"description": "Note: Dashboards are also limited to a single device specified in URL",
-				type: "text",
-        // note: this is only supported for type: text
-        configurable: false,
-        default_value: function() {
-          var device = freeboard.murano.get_connected_device();
-          return device ? device.device_rid : ''
-        }
-			},
-			{
-				name: "dataport_alias",
-				display_name: "Dataport Alias",
-				"description": "Example: food_level",
-				type: "text"
-			}
-		],
-		newInstance: function (settings, newInstanceCallback, updateCallback) {
-			newInstanceCallback(new muranoDatasource(settings, updateCallback));
-		}
-	}); 
-}());
-
-(function () {
-	// On/Off switch widget
-	freeboard.loadWidgetPlugin({
-		// Same stuff here as with datasource plugin.
-		"type_name"   : "toggle_switch",
-		"display_name": "Toggle Switch",
-    "description" : "Writes on/off values to a dataport",
-		// **external_scripts** : Any external scripts that should be loaded before the plugin instance is created.
-		"external_scripts": null,
-		// **fill_size** : If this is set to true, the widget will fill be allowed to fill the entire space given it, otherwise it will contain an automatic padding of around 10 pixels around it.
-		"fill_size" : false,
-		"settings"    : [
-			{
-				name          : "title",
-				display_name  : "title",
-				type          : "text"
-			},
-      {
-        name          : "value",
-        display_name  : "Value",
-        type          : "calculated"
-      },
-			{
-				name          : "on_value",
-				display_name  : "On Value",
-				type          : "text",
-        default_value : "1"
-			},
-			{
-				name          : "off_value",
-				display_name  : "Off Value",
-				type          : "text",
-        default_value : "0"
-			}
-		],
-		// Same as with datasource plugin, but there is no updateCallback parameter in this case.
-		newInstance   : function(settings, newInstanceCallback)
-		{
-			newInstanceCallback(new toggleSwitchWidgetPlugin(settings));
-		}
-	});
-
-	// ### Widget Implementation
-	//
-	// -------------------
-	// Here we implement the actual widget plugin. We pass in the settings;
-	var toggleSwitchWidgetPlugin = function(settings)
-	{
-		var self = this;
-		var currentSettings = settings;
-
-    // Returns a random integer between min (included) and max (excluded)
-    // Using Math.round() will give you a non-uniform distribution!
-    function getRandomInt(min, max) {
-      return Math.floor(Math.random() * (max - min)) + min;
-    }
-    var switch_id = getRandomInt(10000000, 99999999);
-
-		// Here we create an element to hold the text we're going to display. 
-    // We're going to set the value displayed in it below.
-    var widgetElement = $('<div></div>');
-		var titleElement = $('<h2 class="section-title tw-title tw-td"></h2>');
-    titleElement.text(settings.title);
-    var switchElement = $('<div class="toggle-switch"><input id="cmn-toggle-' + switch_id + '" class="cmn-toggle cmn-toggle-round-flat" type="checkbox"><label for="cmn-toggle-' + switch_id + '"></label></div>');
-
-		var myElement = widgetElement.append(titleElement).append(switchElement);
-
-    // handle switch changes
-    switchElement.find('input').click(function() {
-      var $this = $(this);
-      // $this contains a reference to the checkbox   
-      var valueToWrite = null;
-      if ($this.is(':checked')) {
-        valueToWrite = currentSettings.on_value;
-      } else {
-        valueToWrite = currentSettings.off_value;
-      }
-      // TODO: get datasource name from calculated value setting
-      // in a less brittle way (this is from WidgetModel)
-		  var datasourceRegex = new RegExp("datasources.([\\w_-]+)|datasources\\[['\"]([^'\"]+)", "g");
-      var matches = datasourceRegex.exec(currentSettings.value);
-      if (matches.length < 2) {
-        console.log('Unable to determine datasource name from value setting.');
-      } else {
-        var datasourceName = matches[1] || matches[2];
-
-        self.handleWidgetEvent({
-          type: 'write',
-          datasourceName: datasourceName,
-          value: valueToWrite
-        })
-      }
-    });
-
-		// **render(containerElement)** (required) : A public function we must implement that will be called when freeboard wants us to render the contents of our widget. The container element is the DIV that will surround the widget.
-		self.render = function(containerElement)
-		{
-			// Here we append our text element to the widget container element.
-			$(containerElement).append(myElement);
-		}
-
-		// **getHeight()** (required) : A public function we must implement that will be called when freeboard wants to know how big we expect to be when we render, and returns a height. This function will be called any time a user updates their settings (including the first time they create the widget).
-		//
-		// Note here that the height is not in pixels, but in blocks. A block in freeboard is currently defined as a rectangle that is fixed at 300 pixels wide and around 45 pixels multiplied by the value you return here.
-		//
-		// Blocks of different sizes may be supported in the future.
-		self.getHeight = function()
-		{
-      return 2;
-		}
-
-		// **onSettingsChanged(newSettings)** (required) : A public function we must implement that will be called when a user makes a change to the settings.
-		self.onSettingsChanged = function(newSettings)
-		{
-			// Normally we'd update our text element with the value we defined in the user settings above (the_text), but there is a special case for settings that are of type **"calculated"** -- see below.
-      titleElement.text(newSettings.title);
-			currentSettings = newSettings;
-		}
-
-		// **onCalculatedValueChanged(settingName, newValue)** (required) : A public function we must implement that will be called when a calculated value changes. Since calculated values can change at any time (like when a datasource is updated) we handle them in a special callback function here.
-		self.onCalculatedValueChanged = function(settingName, newValue)
-		{
-      if (settingName === 'value') {
-        var switchElement = $("#cmn-toggle-" + switch_id);
-        if (newValue === currentSettings.on_value) {
-          switchElement.prop( "checked", true);
-        } else if (newValue === currentSettings.off_value) {
-          switchElement.prop( "checked", false);
-        } else {
-          console.log("Unexpected switch value " + newValue);
-        }
-      }
-		}
-
-		// **onDispose()** (required) : Same as with datasource plugins.
-		self.onDispose = function()
-		{
-		}
-	}
-}());
-
-/* Murano API client library
- 
- Example usage:
-  // instantiate Murano library
-  var murano = new Murano({
-    api_url: API_URL,
-    websocket_url: WEBSOCKET_URL,
-    error: function(code, options) {
-      // handle general errors here
-      if (code === murano.API_ERRORS.BAD_TOKEN) {
-        redirect_login();
-      } else {
-        console.log('UNKNOWN MURANO ERROR', code);
-      }
-    }
-  });
-  // get a API token for this browser session
-  murano.init(function(err) {
-    if (!err) {
-      return redirect_login();
-    }
-    // connect websocket
-    murano.connect(product_id, device_rid, dataport_aliases, function(err) {
-      if (err) {
-       return console.log('Error connecting websocket', err);
-      }
-    }
-  });
-*/
-
-'use strict';
-const Murano = function(options) {
-  var _token = null;
-  var api_url = options.api_url;
-  var websocket_url = options.websocket_url;
-  var error_fn = options.error;
-  var URL_base = api_url + "/api:1/product/";
-  var URL_rpc = "/proxy/onep:v1/rpc/process";
-  var URL_provision = "/proxy/provision"
-  var ONEP_TOKEN_TTL_SECONDS = 86400; // 24 hours
-
-  // make an ajax call to murano API, calling general error handler
-  // instead of options.error if the token is bad.
-  function ajax_token(options) {
-    var wrapped_error = options.error;
-    options.error = function(xhr, status, error) {
-      www_authenticate = xhr.getResponseHeader('www-authenticate');
-      if (xhr.status === 401 && www_authenticate && www_authenticate.substr(0,5) == "token") {
-        // token is invalid, so app needs to handle that
-        error_fn(me.API_ERRORS.BAD_TOKEN, {
-          original_handler: function() {
-            if (wrapped_error) {
-              wrapped_error(xhr, status, error);
-            }
-          }
-        });
-      } else {
-        if (wrapped_error) {
-          wrapped_error(xhr, status, error);
-        } 
-      }
-    };
-    options.headers = options.headers || {};
-    options.headers.authorization = 'Token ' + _token;
-    $.ajax(options);
-  }
-
-  function provision_get(product_id, path, callback) {
-    ajax_token({
-      url: URL_base + product_id + URL_provision + path,
-      method: "GET",
-        success: function (result) {
-        callback(null, result);
-      },
-      error: function (xhr, status, error) {
-        callback(error, xhr, status);
-      }
-    });
-  }
-  function RPC(product_id, request, callback) {
-    ajax_token({
-      url: URL_base + product_id + URL_rpc,
-      dataType: "JSON",
-      method: "POST",
-      data: JSON.stringify(request),
-      headers: {
-        'content-type': 'application/json; charset=utf-8'
-      },
-      beforeSend: function (xhr) {
-        try {
-          _.each(currentSettings.headers, function (header) {
-            var name = header.name;
-            var value = header.value;
-
-            if (!_.isUndefined(name) && !_.isUndefined(value)) {
-              xhr.setRequestHeader(name, value);
-            }
-          });
-        }
-        catch (e) {
-        }
-      },
-      success: function (result) {
-        // TODO: check for RPC errors
-        callback(null, result);
-      },
-      error: function (xhr, status, error) {
-        callback(error, xhr, status);
-      }
-    });
-  };
-
-  // set up a websocket connection to a device
-  function setup_websocket(product_id, device_rid, dataport_aliases, callback) {
-    // Create 1P token with read and write permission for specified dataports
-    var permissions = {};
-    permissions[device_rid] = {
-      read: dataport_aliases, 
-      write: dataport_aliases,
-      subscribe: dataport_aliases
-    };
-    RPC(product_id, {auth: {client_id: device_rid}, calls: [{
-      id: 0, 
-      procedure: 'grant',
-      arguments: [
-        device_rid,
-        permissions,
-        {ttl: ONEP_TOKEN_TTL_SECONDS}
-      ]}]},
-      function(err, result) {
-        if (result[0].status !== 'ok') {
-          return callback ('Bad status from RPC: ' + result[0].status); 
-        }
-        var onep_token = result[0].result;
-        console.log('onep_token', onep_token);
-        // create websocket and authenticate 
-        _reconnect = function(callback) {
-          _socket = new WebSocket(websocket_url);
-
-          _socket.onopen = function(evt) {
-            switch(_socket.readyState) {
-              case WebSocket.CONNECTING: 
-                console.log('CONNECTING The connection is not yet open.');
-                break;
-              case WebSocket.OPEN:
-                console.log('OPEN The connection is open and ready to communicate.');
-                break;
-              case WebSocket.CLOSING:
-                console.log('CLOSING The connection is in the process of closing.');
-                break;
-              case WebSocket.CLOSED:
-                console.log('CLOSED The connection is closed or couldn\'t be opened.');
-                break;
-            }
-            console.log('websocket connection opened. Sending auth...');
-            _socket.send(JSON.stringify({'auth': {'token': onep_token}}));
-            _socket.onmessage = function(evt) {
-              // disable message handling until we're ready to 
-              // register the real message handler
-              _socket.onmessage = function(evt) {};
-
-              console.log(evt);
-              var response = JSON.parse(evt.data);
-              if (response.status !== 'ok') {
-                console.log('error authenticating websocket', evt);
-                callback(response.status);
-              }
-
-              // websocket is open and authed
-              // current time UTC. TODO: set this to the timestamp of last datapoint
-              // for each device. If the browser's clock is off from the server this 
-              // could cause the last point to be displayed twice.
-              var since = Math.floor(new Date().getTime() / 1000);
-
-              console.log('websocket is open and authed. Subscribing to device RID', device_rid);
-              _.each(dataport_aliases, function(dataport_alias) {
-                var subscription_id = dataport_alias;
-                console.log('subscribing to', dataport_alias);
-                _socket.send(JSON.stringify({calls: [{
-                  id: dataport_alias,
-                  procedure: 'subscribe',
-                  arguments: [
-                    {alias: dataport_alias, rid: device_rid},
-                    {
-                      since: since,
-                      /*subs_id: subscription_id*/
-                    }
-                  ]
-                }]}));
-              });
-              _socket.onmessage = function(evt) {
-                console.log('_socket.onmessage', evt);
-                var data = JSON.parse(evt.data);
-                _.each(data, function(response) {
-                  if (response.status === 'ok') {
-                    if (_callbacks[response.id] && response.hasOwnProperty('result')) {
-                      _callbacks[response.id](response.result[1]);
-                    }
-                  } else {
-                    console.log('Response error status', repsonse.status);
-                  }
-                });
-              }
-              callback(null);
-            }
-          }
-          _socket.onclose = function() {
-            console.log('websocket closed. Reconnecting...');
-            _reconnect(function(err) {
-              if (err) {
-                callback('_reconnect error', err);
-              }
-            });
-          }
-        }
-        _reconnect(function (err) {
-          callback(err);
-        });
-      });
-  }
-
-  var _socket = null;
-  var _reconnect = null;
-  // callback functions for each dataport alias
-  var _callbacks = {};
-
-  // Usage: call init() to do sso, then connect() to connect websocket
-  const me = {
-    ERROR_CODES: {
-      BAD_TOKEN: 'BAD_TOKEN'
-    },
-    get_connected_device: function() {
-      var device = null;
-      if (me.product_id && me.device_rid) {
-        device = {
-          product_id: me.product_id,
-          device_rid: me.device_rid,
-          device_id: me.device_id
-        };
-      }
-      return device;
-    },
-    /* create token and connect websocket to 1P. This websocket
-       is shared by all datasources for this device.  */
-    connect: function(product_id, device_id, callback) {
-      // save the current product and device IDs
-      me.product_id = product_id;
-      me.device_id = device_id;
-
-      me.get_device_rid_by_identity(product_id, device_id, function(err, device_rid) {
-        if (err) {
-          return callback(err);
-        }
-        // save the RID
-        me.device_rid = device_rid;
-
-        // add freeboard datasources for each dataport
-        me.get_device_dataports(product_id, device_rid, function(err, dataports) {
-          if (err) {
-            return callback(err);
-          }
-          // set up websocket
-          setup_websocket(product_id, device_rid, _.pluck(dataports, 'alias'), function(err) {
-            callback(err, device_rid, dataports);            
-          });
-        });
-      });
-    },
-    /* disconnect websocket and drop token */
-    disconnect: function() {
-      _socket.onclose = function() {};
-      _socket.close()
-    },
-    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
-      ajax_token({
-        url: URL_base + product_id + '/dashboard/' + dashboard_id,
-        method: 'PUT',
-        data: dashboard_json,
-        headers: {
-          'content-type': 'application/json; charset=utf-8'
-        }, 
-        success: function (result) {
-          callback(null, result);
-        },
-        error: function (xhr, status, error) {
-          callback(error, xhr, status);
-        }
-      });
-    },
-    load_dashboard: function(product_id, dashboard_id, callback) {
-      ajax_token({
-        url: URL_base + product_id + '/dashboard/' + dashboard_id,
-        method: 'GET',
-        success: function (result) {
-          callback(null, result);
-        },
-        error: function (xhr, status, error) {
-          callback(error, xhr, status);
-        }
-      });
-    },
-    init: function(callback) {
-      // get session token
-      // intentionally using $.ajax here instead of ajax_token
-      $.ajax(api_url + '/session', {
-        success: function(data) {
-          if (!data.hasOwnProperty('apitoken')) {
-            callback('NO_TOKEN');
-          } else {
-            // set token for module
-            _token = data.apitoken;
-            // Check that the token is not expired
-            // intentionally using $.ajax here instead of ajax_token
-            $.ajax(api_url + '/api:1/token/' + _token, {
-              success: function(data) {
-                callback(null);
-              },
-              error: function(xhr, status, error) {
-                console.log(status, error);
-                // /session returned a token, but that token is not good (expired?)
-                callback('EXPIRED_TOKEN');
-              }
-            });
-          }
-        },
-        error: function(xhr, status, error) {
-          console.log(status, error);
-          callback('FAIL_TOKEN');
-        },
-        xhrFields: {
-          withCredentials: true
-        }
-      });
-    },
-    get_latest_point_for: function(product_id, device_rid, dataport_alias, callback) {
-      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
-        id: 0, 
-        procedure: 'read',
-        arguments: [
-          {alias: dataport_alias},
-          {}
-        ]}]},
-        function(err, result) {
-          if (result[0].status !== 'ok') {
-            return callback ('Bad status from RPC: ' + result[0].status); 
-          }
-          callback(err, result[0].result[0]);
-        });
-    },
-    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
-      RPC(product_id, {auth: {client_id: device_rid}, calls: [{
-        id: 0, 
-        procedure: 'write',
-        arguments: [
-          {alias: dataport_alias},
-          value 
-        ]}]},
-        function(err, result) {
-          if (result[0].status !== 'ok') {
-            return callback ('Bad status from RPC: ' + result[0].status); 
-          }
-          callback(err, result[0].result[0]);
-        });
-    },
-    // register callback to call when data comes in on dataport_alias
-    listen_for: function(product_id, device_rid, dataport_alias, callback) {
-      console.log('listen_for', dataport_alias);
-      _callbacks[dataport_alias] = callback;
-    },
-    // unregister callback for data on dataport_alias
-    stop_listening_for: function(product_id, device_rid, dataport_alias) {
-      console.log('stop_listening_for', dataport_alias);
-      _callbacks[dataport_alias] = null;
-    },
-    /*
-     * Look up RID by serial number
-     */
-    get_device_rid_by_identity: function(product_id, identity, callback) {
-      var url = URL_base + product_id + URL_provision;
-      provision_get(product_id, '/manage/model/' + product_id + '/' + identity, function(err, result) {
-        console.log('provision /manage/model', err, result);
-        if (err) { return callback(err); }
-        callback(err, result.split(',')[1]);
-      });
-    },
-    /*
-     * Get an array of dataports for device
-     * { rid: <rid>, alias: <alias> }
-     */
-    get_device_dataports: function(product_id, device_rid, callback) {
-      RPC(product_id, 
-        {auth: {client_id: device_rid}, calls: [
-          {id: 0, procedure: 'listing', arguments: [{alias: ''}, ['dataport'], {}]},
-          {id: 1, procedure: 'info', arguments: [{alias: ''}, {aliases: true}]}
-        ]},
-        function(err, result) {
-          console.log('result from dataports RPC:');
-          console.log(err, result);
-          if (err) { return callback(err); }
-          if (result[0].status !== 'ok' || result[1].status !== 'ok') { 
-            return callback ('Bad status from RPC in get_device_dataports'); 
-          }
-          rids = result[0].result.dataport;
-          aliases = result[1].result.aliases;
-          var dataports = [];
-          _.each(rids, function(rid) {
-            if (_.has(aliases, rid)) {
-              dataports.push({
-                rid: rid,
-                alias: aliases[rid][0], // 0 - alias is first in alias array
-                info: null  // TODO: get info to determine dataport type
-              });
-            }
-          });
-          callback(err, dataports);
-        });
-    }
-  };
-
-  return me;
-}

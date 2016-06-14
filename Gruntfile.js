@@ -67,8 +67,8 @@ module.exports = function(grunt) {
 			},
             plugins : {
                 src : [
-                    'plugins/freeboard/*.js',
-                    'plugins/exosite/*.js'
+                    'plugins/exosite/*.js',
+                    'plugins/freeboard/*.js'
                 ],
                 dest : 'js/freeboard.plugins.js'
             },

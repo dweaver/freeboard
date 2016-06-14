@@ -301,6 +301,14 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		}
 	});
 
+  this.muranoProductId = ko.observable();
+  this.muranoDeviceId = ko.observable();
+  this.muranoDeviceRid = ko.observable();
+  this.muranoDeviceUrl = ko.computed(function() {
+    // TODO: when device URL is available, set it here
+    return UI_URL + '/product/' + self.muranoProductId();
+  });
+
 	this.header_image = ko.observable();
 	this.plugins = ko.observableArray();
 	this.datasources = ko.observableArray();
@@ -586,14 +594,10 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 
   this.saveDashboardToCloudClicked = function(_thisref, event)
 	{
-    // TODO: can I avoid using freeboard global?
-    var device = freeboard.murano.get_connected_device();
-    var product_id = device.product_id;
-    var device_rid = device.device_rid;
     var blob = JSON.stringify(self.serialize());
     freeboard.murano.save_dashboard(
-      product_id,
-      device_rid,
+      self.productId(),
+      self.deviceRid(),
       blob, 
       function(err, result) {
         if (err) {
@@ -618,11 +622,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 
   this.loadDashboardFromCloudClicked = function(_thisref, event)
   {
-    // TODO: can I avoid using freeboard global?
-    var device = freeboard.murano.get_connected_device();
-    var product_id = device.product_id;
-    var device_rid = device.device_rid;
-    self.loadDashboardFromCloud(product_id, device_rid, function(err) {
+    self.loadDashboardFromCloud(self.productId(), deviceRid(), function(err) {
       if (err) {
         console.log('Error loading dashboard from cloud', err);
       }
@@ -2718,7 +2718,7 @@ var freeboard = (function()
 			if(options.type == 'datasource')
 			{
 				types = datasourcePlugins;
-				title = "Datasource";
+				title = "Resource";
 			}
 			else if(options.type == 'widget')
 			{
@@ -3140,8 +3140,17 @@ var freeboard = (function()
     hideNotification: function() {
       $('.board-notification').removeClass('active');
       $('.board-notification .message').html('');
+    },
+    setMurano: function(murano) {
+      freeboard.murano = murano;
+    },
+    setDevice: function(product_id, device_id) {
+      theFreeboardModel.muranoProductId(product_id);
+      theFreeboardModel.muranoDeviceId(device_id);
+    },
+    setDeviceRid: function(device_rid) {
+      theFreeboardModel.muranoDeviceRid(device_rid);
     }
-
 	};
 }());
 
