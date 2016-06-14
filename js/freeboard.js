@@ -593,6 +593,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 	}
 
   this.saveDashboardToCloud = function() {
+    console.log('Saving dashboard.');
     var blob = JSON.stringify(self.serialize());
     freeboard.murano.save_dashboard(
       self.muranoProductId(),
@@ -674,6 +675,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 	this.addPane = function(pane)
 	{
 		self.panes.push(pane);
+    self.saveDashboardToCloud();
 	}
 
 	this.deletePane = function(pane)
@@ -2754,7 +2756,7 @@ var freeboard = (function()
 						{
 							theFreeboardModel.deletePane(viewModel);
 						}
-
+            theFreeboardModel.saveDashboardToCloud();
 					});
 				}
 				else
@@ -2816,6 +2818,8 @@ var freeboard = (function()
 						}
 					}
 
+          theFreeboardModel.saveDashboardToCloud();
+
 					pluginEditor.createPluginEditor(title, types, instanceType, settings, function(newSettings)
 					{
 						if(options.operation == 'add')
@@ -2855,7 +2859,6 @@ var freeboard = (function()
 								viewModel.settings(newSettings.settings);
 							}
 						}
-            console.log('Saving dashboard automatically');
             theFreeboardModel.saveDashboardToCloud();
 					});
 				}
@@ -2880,6 +2883,7 @@ var freeboard = (function()
 			}
 
 			freeboardUI.addPane(element, viewModel, bindingContext.$root.isEditing());
+
 		},
 		update: function(element, valueAccessor, allBindingsAccessor, viewModel, bindingContext)
 		{
