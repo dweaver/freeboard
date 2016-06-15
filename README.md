@@ -174,6 +174,11 @@ $(function()
 });
 ```
 
+### Smoke Test
+
+#.) Load a dashboard for a new device, verify resources are listed
+#.) Load a dashboard for an old device, verify resources are listed
+
 ### Copyright 
 
 Copyright © 2013 Jim Heising (https://github.com/jheising)<br/>Copyright © 2013 Bug Labs, Inc. (http://buglabs.net)<br/>Licensed under the **MIT** license.

@@ -443,7 +443,11 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 			{
 				var datasource = new DatasourceModel(self, datasourcePlugins);
 				datasource.deserialize(datasourceConfig);
-				self.addDatasource(datasource);
+        
+        // murano datasources are loaded based on product
+        if (datasource.type() !== 'muranoDataport') {
+          self.addDatasource(datasource);
+        }
 			});
 
 			var sortedPanes = _.sortBy(object.panes, function(pane){

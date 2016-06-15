@@ -8,9 +8,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="viewport" content = "width = device-width, initial-scale = 1, user-scalable = no" />
     <link href='https://fonts.googleapis.com/css?family=Roboto:400,300' rel='stylesheet' type='text/css'> 
+    <link rel="shortcut icon" href="https://exosite.com/wp-content/uploads/2015/05/favicon.png" />
     <script type="text/javascript">
       var API_URL = 'https://biz-internal-api.exosite-dev.com';
-      var UI_OLD_URL = 'https://iot.exosite-dev.com/oldui';
+      var UI_OLD_URL = 'https://iot.exosite-dev.com/business';
       var UI_URL = 'https://iot.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
     </script>
@@ -41,23 +42,43 @@
               console.log('GENERAL MURANO ERROR', code);
               if (code === murano.ERROR_CODES.BAD_TOKEN) {
                 go_login();
+              } else if (code === murano.ERROR_CODES.PRODUCT_ACCESS) {
+                var msg = 'Unable to access this product or device. ' +
+                  'Either it does not exist or you need to be added to the Murano business that owns it.';
+                terminal_error(msg, msg);
               }
             }
 
-            function create_default_dashboard(product_id, device_id, device_rid, dataports) {
+            function terminal_error(message, console_message) {
+              if (typeof console_message !== 'undefined') {
+                console.log(console_message);
+              }
+              freeboard.showNotification(message);
+
+              // Hide things that could cause harm
+              $('#datasources').hide();
+              $('#board-actions').hide();
+              freeboard.setMurano(null)
+            }
+
+            function populate_resources(product_id, device_id, device_rid, dataports) {
               // add dataports for this device as datasources
               _.each(dataports, function(dataport) {
                 freeboard.addDatasource({
                   type:"muranoDataport",
                   settings:{
                     name: dataport.alias,
-                    product_id: product,
+                    product_id: product_id,
                     device_id: device_id,
                     device_rid: device_rid,
                     dataport_alias: dataport.alias
-                    }
+                  }
                 });
               });
+            }
+
+            function create_default_dashboard(product_id, device_id, device_rid, dataports) {
+              // TODO: create a dashboard based on the dataports present here
             }
 
             function initialize_app(murano) {
@@ -69,18 +90,21 @@
               var device_id = getParameterByName('device');// || '00000002';
 
               if (!product_id || !device_id) {
-                console.log('Missing product=<product-id> or device=<device-identity> in URL');
-                freeboard.showNotification(
-                  'No device specified. Please link to a device from <a href="' + UI_OLD_URL + '">Murano</a>.');
-                $('#datasources').hide();
+                terminal_error(
+                  'No device specified. Please link to a device from <a href="' + 
+                    UI_OLD_URL + '">Murano</a>.',
+                  'Missing product=<product-id> or device=<device-identity> in URL');
                 return;
               }
               console.log('product_id: ', product_id, 'device_id: ', device_id);
 
+              console.log('hello????');
               freeboard.setDevice(product_id, device_id);
               murano.connect(product_id, device_id, function(err, device_rid, dataports) {
                 if (err) {
-                  return console.log('Error connecting websocket', err);
+                  return terminal_error(
+                    'Error connecting websocket.',
+                    'Error connecting websocket.' + err);
                 }
                 freeboard.setDeviceRid(device_rid);
 
@@ -92,7 +116,11 @@
                   } else {
                     console.log('Loaded saved device dashboard.');
                   }
+                  // populate the resource list in the upper right
+                  // NOTE: these are not loaded from the dashboard
+                  populate_resources(product_id, device_id, device_rid, dataports);
                 });
+                    
               });
             }
 
@@ -106,9 +134,8 @@
             }
 
             function go_login() {
-              // TODO: encodeURIComponent(window.location.href), at the moment bizui 
-              // does not decode it so this works better
-              window.location = UI_OLD_URL + '/login?redirectTo=' + window.location.href;
+              window.location = UI_OLD_URL + 
+                '/auth/login?redirectTo=' + encodeURIComponent(window.location.href);
             }
 
             var murano = new Murano({

@@ -7,7 +7,7 @@
     websocket_url: WEBSOCKET_URL,
     error: function(code, options) {
       // handle general errors here
-      if (code === murano.API_ERRORS.BAD_TOKEN) {
+      if (code === murano.ERROR_CODES.BAD_TOKEN) {
         redirect_login();
       } else {
         console.log('UNKNOWN MURANO ERROR', code);
@@ -41,13 +41,24 @@ const Murano = function(options) {
 
   // make an ajax call to murano API, calling general error handler
   // instead of options.error if the token is bad.
-  function ajax_token(options) {
+  // exceptions is a list of HTTP statuses that should be handled normally
+  function ajax_token(options, exceptions) {
+    exceptions = exceptions || [];
     var wrapped_error = options.error;
     options.error = function(xhr, status, error) {
       www_authenticate = xhr.getResponseHeader('www-authenticate');
       if (xhr.status === 401 && www_authenticate && www_authenticate.substr(0,5) == "token") {
         // token is invalid, so app needs to handle that
-        error_fn(me.API_ERRORS.BAD_TOKEN, {
+        error_fn(me.ERROR_CODES.BAD_TOKEN, {
+          original_handler: function() {
+            if (wrapped_error) {
+              wrapped_error(xhr, status, error);
+            }
+          }
+        });
+      } else if (xhr.status === 404 && exceptions.indexOf(xhr.status) === -1) {
+        // product/device not found or not accessible to the user
+        error_fn(me.ERROR_CODES.PRODUCT_ACCESS, {
           original_handler: function() {
             if (wrapped_error) {
               wrapped_error(xhr, status, error);
@@ -226,7 +237,8 @@ const Murano = function(options) {
   // Usage: call init() to do sso, then connect() to connect websocket
   const me = {
     ERROR_CODES: {
-      BAD_TOKEN: 'BAD_TOKEN'
+      BAD_TOKEN: 'BAD_TOKEN',
+      PRODUCT_ACCESS: 'PRODUCT_ACCESS'
     },
     get_connected_device: function() {
       var device = null;
@@ -296,7 +308,7 @@ const Murano = function(options) {
         error: function (xhr, status, error) {
           callback(error, xhr, status);
         }
-      });
+      }, [404]);
     },
     init: function(callback) {
       // get session token
@@ -390,7 +402,6 @@ const Murano = function(options) {
           {id: 1, procedure: 'info', arguments: [{alias: ''}, {aliases: true}]}
         ]},
         function(err, result) {
-          console.log('result from dataports RPC:');
           if (err) { return callback(err); }
           if (result[0].status !== 'ok' || result[1].status !== 'ok') { 
             return callback ('Bad status from RPC in get_device_dataports'); 
