@@ -2508,8 +2508,6 @@ input.cmn-toggle-round-flat:checked + label:after {
 #device-nav th {
   font-size: 10px;
   text-align: left;
-}
-#device-nav th:first-of-type {
   padding-left: 10px;
 }
 #device-nav td {

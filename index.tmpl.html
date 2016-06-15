@@ -98,7 +98,6 @@
               }
               console.log('product_id: ', product_id, 'device_id: ', device_id);
 
-              console.log('hello????');
               freeboard.setDevice(product_id, device_id);
               murano.connect(product_id, device_id, function(err, device_rid, dataports) {
                 if (err) {
@@ -179,12 +178,14 @@
                     <tbody>
                       <tr>
                         <td>
-                          <a data-bind="attr: { href: muranoDeviceUrl }">
+                          <a data-bind="attr: { href: muranoProductUrl }">
                             <span class="text-button" data-bind="text: muranoProductId">-</span>
                           </a>
                         </td>
                         <td>
-                          <span data-bind="text: muranoDeviceId">-</span>
+                          <a data-bind="attr: { href: muranoDeviceUrl }">
+                            <span class="text-button" data-bind="text: muranoDeviceId">-</span>
+                          </a>
                         </td>
                       </tr>
                     </tbody>

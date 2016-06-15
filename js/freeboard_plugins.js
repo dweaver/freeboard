@@ -304,9 +304,11 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
   this.muranoProductId = ko.observable();
   this.muranoDeviceId = ko.observable();
   this.muranoDeviceRid = ko.observable();
-  this.muranoDeviceUrl = ko.computed(function() {
-    // TODO: when device URL is available, set it here
+  this.muranoProductUrl = ko.computed(function() {
     return UI_URL + '/product/' + self.muranoProductId();
+  });
+  this.muranoDeviceUrl = ko.computed(function() {
+    return UI_URL + '/product/' + self.muranoProductId() + '#/detail/' + self.muranoDeviceId;
   });
 
 	this.header_image = ko.observable();
