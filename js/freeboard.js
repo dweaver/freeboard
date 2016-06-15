@@ -1473,7 +1473,8 @@ PluginEditor = function(jsEditor, valueEditor)
 		{
 			var tr = $('<div id="setting-row-' + name + '" class="form-row"></div>').appendTo(form);
       if (!visible) {
-        tr.hide();
+        // disabling this temporarily since it breaks adding widgets
+        //tr.hide();
       }
 
 			tr.append('<div class="form-label"><label class="control-label">' + displayName + '</label></div>');
