@@ -1801,6 +1801,7 @@ freeboard.loadDatasourcePlugin({
 				type: "text",
         // note: this is only supported for type: text
         configurable: false,
+        visible: false,
         default_value: function() {
           var device = freeboard.murano.get_connected_device();
           return device ? device.device_rid : ''

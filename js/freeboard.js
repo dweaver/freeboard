@@ -1469,9 +1469,12 @@ PluginEditor = function(jsEditor, valueEditor)
 			settings: {}
 		};
 
-		function createSettingRow(name, displayName)
+		function createSettingRow(name, displayName, visible)
 		{
 			var tr = $('<div id="setting-row-' + name + '" class="form-row"></div>').appendTo(form);
+      if (!visible) {
+        tr.hide();
+      }
 
 			tr.append('<div class="form-label"><label class="control-label">' + displayName + '</label></div>');
 			return $('<div id="setting-value-container-' + name + '" class="form-value"></div>').appendTo(tr);
@@ -1504,7 +1507,9 @@ PluginEditor = function(jsEditor, valueEditor)
 					displayName = settingDef.display_name;
 				}
 
-				var valueCell = createSettingRow(settingDef.name, displayName);
+        // visible by default
+        var visible = !_.has(settingDef, 'visible') || settingDef.visible;
+				var valueCell = createSettingRow(settingDef.name, displayName, visible);
 
 				switch (settingDef.type)
 				{
