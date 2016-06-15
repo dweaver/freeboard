@@ -5492,6 +5492,10 @@ const Murano = function(options) {
           {}
         ]}]},
         function(err, result) {
+          if (err) {
+            console.log('Error from get_latest_point_for:', err);
+            return callback(err);
+          }
           if (result[0].status !== 'ok') {
             return callback ('Bad status from RPC: ' + result[0].status); 
           }
