@@ -10,10 +10,16 @@
     <link href='https://fonts.googleapis.com/css?family=Roboto:400,300' rel='stylesheet' type='text/css'> 
     <link rel="shortcut icon" href="https://exosite.com/wp-content/uploads/2015/05/favicon.png" />
     <script type="text/javascript">
+<!-- @if NODE_ENV != 'PRODUCTION' -->
       var API_URL = 'https://biz-internal-api.exosite-dev.com';
-      var UI_OLD_URL = 'https://iot.exosite-dev.com/business';
       var UI_URL = 'https://iot.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
+<!-- @endif -->
+<!-- @if NODE_ENV == 'PRODUCTION' -->
+      var API_URL = 'https://biz-internal-api.exosite.com';
+      var UI_URL = 'https://iot.exosite.com';
+      var WEBSOCKET_URL = 'wss://m2.exosite.com/ws';
+<!-- @endif -->
     </script>
 <!-- @if NODE_ENV == 'DEVELOPMENT_LOCAL' -->
     <link href="css/freeboard.css" rel="stylesheet" />
@@ -23,6 +29,13 @@
         function() {
 <!-- @endif -->
 <!-- @if NODE_ENV == 'DEVELOPMENT_SERVER' -->
+    <link href="css/freeboard.min.css" rel="stylesheet" />
+    <script src="js/freeboard.thirdparty.min.js"></script>
+    <script type="text/javascript">
+      head.js("js/freeboard_plugins.min.js",
+      function() {
+<!-- @endif -->
+<!-- @if NODE_ENV == 'PRODUCTION' -->
     <link href="css/freeboard.min.css" rel="stylesheet" />
     <script src="js/freeboard.thirdparty.min.js"></script>
     <script type="text/javascript">
@@ -92,7 +105,7 @@
               if (!product_id || !device_id) {
                 terminal_error(
                   'No device specified. Please link to a device from <a href="' + 
-                    UI_OLD_URL + '">Murano</a>.',
+                    UI_URL + '/business' + '">Murano</a>.',
                   'Missing product=<product-id> or device=<device-identity> in URL');
                 return;
               }
@@ -133,8 +146,8 @@
             }
 
             function go_login() {
-              window.location = UI_OLD_URL + 
-                '/auth/login?redirectTo=' + encodeURIComponent(window.location.href);
+              window.location = UI_URL + 
+                '/business/auth/login?redirectTo=' + encodeURIComponent(window.location.href);
             }
 
             var murano = new Murano({

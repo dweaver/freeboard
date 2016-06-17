@@ -7,6 +7,9 @@ module.exports = function(grunt) {
           },
           dev_server: {
             NODE_ENV : 'DEVELOPMENT_SERVER'
+          },
+          prod: {
+            NODE_ENV : 'PRODUCTION'
           }
         },
         preprocess: {
@@ -15,6 +18,10 @@ module.exports = function(grunt) {
             dest: './index.html'
           },
           dev_server: {
+            src: './index.tmpl.html',
+            dest: './index.html'
+          },
+          prod: {
             src: './index.tmpl.html',
             dest: './index.html'
           }
@@ -155,4 +162,7 @@ module.exports = function(grunt) {
     grunt.registerTask('dev_server', dev_server_tasks);
 
     grunt.registerTask('default', ['dev_local', 'watch']);
+
+    var prod_server_tasks = ['env:prod', 'preprocess:prod'].concat(base_tasks.slice(0));
+    grunt.registerTask('prod',  prod_server_tasks);
 };
