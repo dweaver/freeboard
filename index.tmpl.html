@@ -7,17 +7,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="viewport" content = "width = device-width, initial-scale = 1, user-scalable = no" />
-    <link href='https://fonts.googleapis.com/css?family=Roboto:400,300' rel='stylesheet' type='text/css'> 
+    <link href='https://fonts.googleapis.com/css?family=Roboto:400,300' rel='stylesheet' type='text/css'>
     <link rel="shortcut icon" href="https://exosite.com/wp-content/uploads/2015/05/favicon.png" />
     <script type="text/javascript">
 <!-- @if NODE_ENV != 'PRODUCTION' -->
-      var API_URL = 'https://biz-internal-api.exosite-dev.com';
-      var UI_URL = 'https://iot.exosite-dev.com';
+      var API_URL = 'https://bizapi-dev.hosted.exosite.io';
+      var UI_URL = 'https://www.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
 <!-- @endif -->
 <!-- @if NODE_ENV == 'PRODUCTION' -->
-      var API_URL = 'https://biz-internal-api.exosite.com';
-      var UI_URL = 'https://iot.exosite.com';
+      var API_URL = 'https://bizapi.hosted.exosite.io';
+      var UI_URL = 'https://exosite.io';
       var WEBSOCKET_URL = 'wss://m2.exosite.com/ws';
 <!-- @endif -->
     </script>
@@ -104,7 +104,7 @@
 
               if (!product_id || !device_id) {
                 terminal_error(
-                  'No device specified. Please link to a device from <a href="' + 
+                  'No device specified. Please link to a device from <a href="' +
                     UI_URL + '/business' + '">Murano</a>.',
                   'Missing product=<product-id> or device=<device-identity> in URL');
                 return;
@@ -122,7 +122,7 @@
 
                 freeboard.loadDashboardFromCloud(product_id, device_rid, function(err) {
                   if (err) {
-                    console.log('No saved device dashboard found. ' + 
+                    console.log('No saved device dashboard found. ' +
                       'Initializing a new one. (', err, ')');
                     create_default_dashboard(product_id, device_rid, dataports);
                   } else {
@@ -132,7 +132,7 @@
                   // NOTE: these are not loaded from the dashboard
                   populate_resources(product_id, device_id, device_rid, dataports);
                 });
-                    
+
               });
             }
 
@@ -146,7 +146,7 @@
             }
 
             function go_login() {
-              window.location = UI_URL + 
+              window.location = UI_URL +
                 '/business/auth/login?redirectTo=' + encodeURIComponent(window.location.href);
             }
 
@@ -161,7 +161,7 @@
                 go_login();
               } else {
                 initialize_app(murano);
-              } 
+              }
             });
           });
         });
