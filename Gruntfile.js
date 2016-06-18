@@ -8,6 +8,9 @@ module.exports = function(grunt) {
           dev_server: {
             NODE_ENV : 'DEVELOPMENT_SERVER'
           },
+          staging: {
+            NODE_ENV : 'STAGING'
+          },
           prod: {
             NODE_ENV : 'PRODUCTION'
           }
@@ -150,7 +153,6 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-preprocess');
     grunt.loadNpmTasks('grunt-env');
     grunt.loadNpmTasks('grunt-string-replace');
-    
 
     var base_tasks = [ 'concat:css', 'cssmin:css', 'concat:fb', 'concat:thirdparty', 'concat:plugins', 'concat:fb_plugins', 'uglify:fb', 'uglify:plugins', 'uglify:fb_plugins', 'uglify:thirdparty', 'string-replace:css' ];
     var base_tasks_dev = [ 'concat:css', 'concat:fb', 'concat:thirdparty', 'concat:plugins', 'concat:fb_plugins', 'string-replace:css' ];
@@ -162,6 +164,9 @@ module.exports = function(grunt) {
     grunt.registerTask('dev_server', dev_server_tasks);
 
     grunt.registerTask('default', ['dev_local', 'watch']);
+
+    var staging_server_tasks = ['env:staging', 'preprocess:prod'].concat(base_tasks.slice(0));
+    grunt.registerTask('staging',  staging_server_tasks);
 
     var prod_server_tasks = ['env:prod', 'preprocess:prod'].concat(base_tasks.slice(0));
     grunt.registerTask('prod',  prod_server_tasks);
