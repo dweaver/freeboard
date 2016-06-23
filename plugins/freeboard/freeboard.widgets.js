@@ -329,7 +329,8 @@
             {
                 name: "sparkline",
                 display_name: "Include Sparkline",
-                type: "boolean"
+                type: "boolean",
+                default_value: true
             },
             {
                 name: "animate",
