@@ -2735,34 +2735,12 @@ var freeboard = (function()
 
 			if(options.type == 'datasource')
 			{
-        var HIDDEN_DATASOURCES = [
-          'JSON',
-          'openweathermap',
-          'dweet_io',
-          'playback',
-          'clock',
-          'meshblu'
-        ];
-
-				types = _.filter(datasourcePlugins, function(plugin) {
-          return HIDDEN_DATASOURCES.indexOf(plugin.type_name) === -1;
-        });
+				types = datasourcePlugins;
 				title = "Resource";
 			}
 			else if(options.type == 'widget')
 			{
-        // hide some widgets
-        var HIDDEN_WIDGETS = [
-          'pointer',
-          'google_map',
-          'html',
-          'sparkline', 
-          'picture'
-        ];
-
-				types = _.filter(widgetPlugins, function(plugin) {
-          return HIDDEN_WIDGETS.indexOf(plugin.type_name) === -1;
-        });
+				types = widgetPlugins;
 				title = "Widget";
 			}
 			else if(options.type == 'pane')
