@@ -2735,6 +2735,7 @@ var freeboard = (function()
 
 			if(options.type == 'datasource')
 			{
+        // hide some plugins
         var HIDDEN_DATASOURCES = [
           'JSON',
           'openweathermap',
@@ -2744,9 +2745,9 @@ var freeboard = (function()
           'meshblu'
         ];
 
-				types = _.filter(datasourcePlugins, function(plugin) {
-          return HIDDEN_DATASOURCES.indexOf(plugin.type_name) === -1;
-        });
+				types = _.pick(datasourcePlugins, _.filter(_.keys(datasourcePlugins), function(type_name) {
+          return HIDDEN_DATASOURCES.indexOf(type_name) === -1;
+        }));
 				title = "Resource";
 			}
 			else if(options.type == 'widget')
@@ -2760,9 +2761,9 @@ var freeboard = (function()
           'picture'
         ];
 
-				types = _.filter(widgetPlugins, function(plugin) {
-          return HIDDEN_WIDGETS.indexOf(plugin.type_name) === -1;
-        });
+				types = _.pick(widgetPlugins, _.filter(_.keys(widgetPlugins), function(type_name) {
+          return HIDDEN_WIDGETS.indexOf(type_name) === -1;
+        }));
 				title = "Widget";
 			}
 			else if(options.type == 'pane')
