@@ -1223,7 +1223,7 @@ JSEditor = function () {
 		var codeWindow = $('<div class="code-window"></div>');
 		var codeMirrorWrapper = $('<div class="code-mirror-wrapper"></div>');
 		var codeWindowFooter = $('<div class="code-window-footer"></div>');
-		var codeWindowHeader = $('<div class="code-window-header cm-s-ambiance">This javascript will be re-evaluated any time a datasource referenced here is updated, and the value you <code><span class="cm-keyword">return</span></code> will be displayed in the widget. You can assume this javascript is wrapped in a function of the form <code><span class="cm-keyword">function</span>(<span class="cm-def">datasources</span>)</code> where datasources is a collection of javascript objects (keyed by their name) corresponding to the most current data in a datasource.</div>');
+		var codeWindowHeader = $('<div class="code-window-header cm-s-ambiance">This javascript will be re-evaluated any time a resource referenced here is updated, and the value you <code><span class="cm-keyword">return</span></code> will be displayed in the widget. You can assume this javascript is wrapped in a function of the form <code><span class="cm-keyword">function</span>(<span class="cm-def">resources</span>)</code> where resources is a collection of javascript objects (keyed by their name) corresponding to the most current data in a resource.</div>');
 
 		codeWindow.append([codeWindowHeader, codeMirrorWrapper, codeWindowFooter]);
 
@@ -1435,10 +1435,10 @@ PluginEditor = function(jsEditor, valueEditor)
 		var wrapperDiv = $('<div class="calculated-setting-row"></div>');
 		wrapperDiv.append(input).append(datasourceToolbox);
 
-		var datasourceTool = $('<li><i class="icon-plus icon-white"></i><label>DATASOURCE</label></li>')
+		var datasourceTool = $('<li><i class="icon-plus icon-white"></i><label>RESOURCE</label></li>')
 			.mousedown(function(e) {
 				e.preventDefault();
-				$(input).val("").focus().insertAtCaret("datasources[\"").trigger("freeboard-eval");
+				$(input).val("").focus().insertAtCaret("resources[\"").trigger("freeboard-eval");
 			});
 		datasourceToolbox.append(datasourceTool);
 
@@ -1939,7 +1939,7 @@ PluginEditor = function(jsEditor, valueEditor)
 
 ValueEditor = function(theFreeboardModel)
 {
-	var _veDatasourceRegex = new RegExp(".*datasources\\[\"([^\"]*)(\"\\])?(.*)$");
+	var _veDatasourceRegex = new RegExp(".*resources\\[\"([^\"]*)(\"\\])?(.*)$");
 
 	var dropdown = null;
 	var selectedOptionIndex = 0;
@@ -2002,7 +2002,7 @@ ValueEditor = function(theFreeboardModel)
 
 		if(match)
 		{
-			// Editor value is: datasources["; List all datasources
+			// Editor value is: resources["; List all datasources
 			if(match[1] == "")
 			{
 				_.each(datasources, function(datasource)
@@ -2407,7 +2407,7 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 
 		// Check for any calculated settings
 		var settingsDefs = widgetPlugins[self.type()].settings;
-		var datasourceRegex = new RegExp("datasources.([\\w_-]+)|datasources\\[['\"]([^'\"]+)", "g");
+		var datasourceRegex = new RegExp("resources.([\\w_-]+)|resources\\[['\"]([^'\"]+)", "g");
 		var currentSettings = self.settings();
 
 		_.each(settingsDefs, function (settingDef) {
@@ -2428,19 +2428,19 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 					var valueFunction;
 
  					try {
-						valueFunction = new Function("datasources", script);
+						valueFunction = new Function("resources", script);
 					}
 					catch (e) {
 						var literalText = currentSettings[settingDef.name].replace(/"/g, '\\"').replace(/[\r\n]/g, ' \\\n');
 
 						// If the value function cannot be created, then go ahead and treat it as literal text
-						valueFunction = new Function("datasources", "return \"" + literalText + "\";");
+						valueFunction = new Function("resources", "return \"" + literalText + "\";");
 					}
 
 					self.calculatedSettingScripts[settingDef.name] = valueFunction;
 					self.processCalculatedSetting(settingDef.name);
 
-					// Are there any datasources we need to be subscribed to?
+					// Are there any resources we need to be subscribed to?
 					var matches;
 
 					while (matches = datasourceRegex.exec(script)) {
@@ -2498,7 +2498,17 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 
 	this.deserialize = function (object) {
 		self.title(object.title);
+
+    // backward compatibility with saved dashboards
+    // from before the "datasources" -> "resources" change
+    if (object.settings.value && object.settings.value.match(/datasources\[/)) {
+      console.log('Replacing "datasources[" -> "resources[" for backward compatibility...');
+      console.log('value before conversion: ', object.settings.value);
+      object.settings.value = object.settings.value.replace(/datasources\[/g, 'resources[');
+      console.log('value after conversion: ', object.settings.value);
+    }
 		self.settings(object.settings);
+
 		self.type(object.type);
 	}
 }

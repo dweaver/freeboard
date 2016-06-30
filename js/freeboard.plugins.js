@@ -1900,10 +1900,10 @@ freeboard.loadDatasourcePlugin({
       }
       // TODO: get datasource name from calculated value setting
       // in a less brittle way (this is from WidgetModel)
-		  var datasourceRegex = new RegExp("datasources.([\\w_-]+)|datasources\\[['\"]([^'\"]+)", "g");
+		  var datasourceRegex = new RegExp("resources.([\\w_-]+)|resources\\[['\"]([^'\"]+)", "g");
       var matches = datasourceRegex.exec(currentSettings.value);
       if (matches.length < 2) {
-        console.log('Unable to determine datasource name from value setting.');
+        console.log('Unable to determine resource name from value setting.');
       } else {
         var datasourceName = matches[1] || matches[2];
 
