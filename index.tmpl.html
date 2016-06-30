@@ -96,6 +96,7 @@
 
               // Hide things that could cause harm
               showControls(false);
+              freeboard.showLoadingIndicator(false);
               freeboard.setMurano(null)
             }
 
@@ -124,7 +125,6 @@
 
               freeboard.initialize(true, function() {
                 // show loading indicator a little while longer
-                freeboard.showLoadingIndicator(true);
               });
 
               var product_id = getParameterByName('product');
