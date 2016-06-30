@@ -79,6 +79,15 @@
               }
             }
 
+            function showControls(show) {
+              if (show === true || typeof show === 'undefined') {
+                $('#datasources').show();
+                $('#board-actions').show();
+              } else {
+                $('#datasources').hide();
+                $('#board-actions').hide();
+              }
+            }
             function terminal_error(message, console_message) {
               if (typeof console_message !== 'undefined') {
                 console.log(console_message);
@@ -86,8 +95,7 @@
               freeboard.showNotification(message);
 
               // Hide things that could cause harm
-              $('#datasources').hide();
-              $('#board-actions').hide();
+              showControls(false);
               freeboard.setMurano(null)
             }
 
@@ -114,10 +122,13 @@
             function initialize_app(murano) {
               freeboard.setMurano(murano);
 
-              freeboard.initialize(true);
+              freeboard.initialize(true, function() {
+                // show loading indicator a little while longer
+                freeboard.showLoadingIndicator(true);
+              });
 
-              var product_id = getParameterByName('product');// || 'qsn4ggiq04er8uxr';
-              var device_id = getParameterByName('device');// || '00000002';
+              var product_id = getParameterByName('product');
+              var device_id = getParameterByName('device');
 
               if (!product_id || !device_id) {
                 terminal_error(
@@ -145,9 +156,16 @@
                   } else {
                     console.log('Loaded saved device dashboard.');
                   }
+                  
+
+                  // re-enable dashboard controls
+                  showControls(true);
+                  
                   // populate the resource list in the upper right
                   // NOTE: these are not loaded from the dashboard
                   populate_resources(product_id, device_id, device_rid, dataports);
+
+                  freeboard.showLoadingIndicator(false);
                 });
 
               });
@@ -167,6 +185,7 @@
                 '/business/auth/login?redirectTo=' + encodeURIComponent(window.location.href);
             }
 
+            showControls(false);
             var murano = new Murano({
               api_url: API_URL,
               websocket_url: WEBSOCKET_URL,

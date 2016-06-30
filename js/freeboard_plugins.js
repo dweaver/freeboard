@@ -3004,13 +3004,17 @@ var freeboard = (function()
 				theFreeboardModel.allow_edit(allowEdit);
 				theFreeboardModel.setEditing(allowEdit);
 
-				freeboardUI.showLoadingIndicator(false);
 				if(_.isFunction(finishedCallback))
 				{
+          // if caller passes a callback then they are responsible for
+          // hiding the loading indicator when they're done loading.
 					finishedCallback();
-				}
-
-                freeboard.emit("initialized");
+				} 
+        else 
+        {
+          freeboardUI.showLoadingIndicator(false);
+        }
+        freeboard.emit("initialized");
 			}
 		},
 		newDashboard        : function()
