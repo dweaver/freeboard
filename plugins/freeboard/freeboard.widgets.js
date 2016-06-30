@@ -310,6 +310,7 @@
                 name: "size",
                 display_name: "Size",
                 type: "option",
+                visible: false,
                 options: [
                     {
                         name: "Regular",

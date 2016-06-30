@@ -1475,9 +1475,9 @@ PluginEditor = function(jsEditor, valueEditor)
 		function createSettingRow(name, displayName, visible)
 		{
 			var tr = $('<div id="setting-row-' + name + '" class="form-row"></div>').appendTo(form);
-      if (!visible) {
+      if (visible === false) {
         // disabling this temporarily since it breaks adding widgets
-        //tr.hide();
+        tr.hide();
       }
 
 			tr.append('<div class="form-label"><label class="control-label">' + displayName + '</label></div>');
@@ -4181,6 +4181,7 @@ freeboard.loadDatasourcePlugin({
                 name: "size",
                 display_name: "Size",
                 type: "option",
+                visible: false,
                 options: [
                     {
                         name: "Regular",
