@@ -1811,7 +1811,7 @@ freeboard.loadDatasourcePlugin({
 			},
 			{
 				name: "dataport_alias",
-				display_name: "Dataport Alias",
+				display_name: "Resource Alias",
 				"description": "Example: food_level",
 				type: "text"
 			}
