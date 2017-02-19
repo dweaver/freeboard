@@ -11,6 +11,7 @@
 		this.updateNow = function () {
 			freeboard.murano.get_latest_point_for(
           currentSettings.product_id, 
+          currentSettings.device_id,
           currentSettings.device_rid, 
           currentSettings.dataport_alias, function (err, point) {
 				if (err) {
