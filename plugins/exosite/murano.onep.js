@@ -242,8 +242,12 @@ const MuranoOneP = function(options) {
       _socket.onclose = function() {};
       _socket.close()
     },
-    save_dashboard: _muranoBase.save_dashboard,
-    load_dashboard: _muranoBase.load_dashboard,
+    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
+      _muranoBase.save_dashboard(_muranoBase.product_api_url + product_id + '/dashboard/' + dashboard_id, dashboard_json, callback);
+    },
+    load_dashboard: function(product_id, dashboard_id, callback) {
+      _muranoBase.load_dashboard(_muranoBase.product_api_url + product_id + '/dashboard/' + dashboard_id, callback);
+    },
     init: _muranoBase.init,
     get_latest_point_for: function(product_id, device_id, device_rid, dataport_alias, callback) {
       RPC(product_id, {auth: {client_id: device_rid}, calls: [{

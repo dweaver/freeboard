@@ -14,6 +14,7 @@ const MuranoBase = function(options) {
   var me = {
     api_url: api_url,
     product_api_url: api_url + "/api:1/product/",
+    service_api_url: api_url + "/api:1/service/",
     ERROR_CODES: {
       BAD_TOKEN: 'BAD_TOKEN',
       PRODUCT_ACCESS: 'PRODUCT_ACCESS'
@@ -54,30 +55,25 @@ const MuranoBase = function(options) {
       options.headers.authorization = 'Token ' + _token;
       $.ajax(options);
     },
-
-    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
-      // TODO: fix dashboard saving
-      callback(null);
-      /*
-        me.ajax_token({
-          url: me.product_api_url + product_id + '/dashboard/' + dashboard_id,
-          method: 'PUT',
-          data: dashboard_json,
-          headers: {
-            'content-type': 'application/json; charset=utf-8'
-          }, 
-          success: function (result) {
-            callback(null, result);
-          },
-          error: function (xhr, status, error) {
-            callback(error, xhr, status);
-          }
-        });
-        */
-    },
-    load_dashboard: function(product_id, dashboard_id, callback) {
+    save_dashboard: function(url, dashboard_json, callback) {
       me.ajax_token({
-        url: me.product_api_url + product_id + '/dashboard/' + dashboard_id,
+        url: url,
+        method: 'PUT',
+        data: dashboard_json,
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        }, 
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    load_dashboard: function(url, callback) {
+      me.ajax_token({
+        url: url,
         method: 'GET',
         success: function (result) {
           callback(null, result);
