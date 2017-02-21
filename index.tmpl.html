@@ -163,6 +163,7 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
                 // 1P devices use RID as dashboard ID, Okami devices use device ID
                 var dashboard_id = is_okami_device ? device_id : device_rid;
 
+                freeboard.setIsOkamiDevice(is_okami_device);
                 freeboard.setDashboardId(dashboard_id);
 
                 freeboard.loadDashboardFromCloud(product_id, dashboard_id, function(err) {

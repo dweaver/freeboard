@@ -301,6 +301,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		}
 	});
 
+  this.muranoIsOkamiDevice = ko.observable(false);
   this.muranoProductId = ko.observable();
   this.muranoDeviceId = ko.observable();
   // dashboard ID is the RID (1P) or Identity (Okami)
@@ -308,11 +309,19 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
   // product namespace.
   this.muranoDashboardId = ko.observable();
   this.muranoProductUrl = ko.computed(function() {
-    return UI_URL + '/product/' + self.muranoProductId();
+    if (!self.muranoIsOkamiDevice) {
+      return UI_URL + '/product/' + self.muranoProductId();
+    } else {
+      return UI_URL + '/business/connectivity/' + self.muranoProductId();
+    }
   });
   this.muranoDeviceUrl = ko.computed(function() {
-    return UI_URL + '/product/' + self.muranoProductId() + 
-      '#/detail/' + self.muranoDeviceId() + '/resources';
+    if (!self.muranoIsOkamiDevice) {
+      return UI_URL + '/product/' + self.muranoProductId() + 
+        '#/detail/' + self.muranoDeviceId() + '/resources';
+    } else {
+      return UI_URL + '/business/connectivity/' + self.muranoProductId() + '/devices/' + self.muranoDeviceId();
+    }
   });
 
 	this.header_image = ko.observable();
@@ -3212,6 +3221,9 @@ var freeboard = (function()
     },
     setDashboardId: function(dashboard_id) {
       theFreeboardModel.muranoDashboardId(dashboard_id);
+    },
+    setIsOkamiDevice: function(is_okami_device) {
+      theFreeboardModel.muranoIsOkamiDevice(is_okami_device)
     }
 	};
 }());
