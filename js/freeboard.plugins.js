@@ -1716,6 +1716,7 @@ freeboard.loadDatasourcePlugin({
 		this.updateNow = function () {
 			freeboard.murano.get_latest_point_for(
           currentSettings.product_id, 
+          currentSettings.device_id,
           currentSettings.device_rid, 
           currentSettings.dataport_alias, function (err, point) {
 				if (err) {
@@ -1964,6 +1965,322 @@ freeboard.loadDatasourcePlugin({
 	}
 }());
 
+/*
+ Common functionality between MuranoOneP and MuranoOkami.
+ Specifically, bizapi calls and dashboard loading
+ and saving.
+*/
+'use strict';
+const MuranoBase = function(options) {
+  var _token = null;
+
+  // Options
+  var api_url = options.api_url;
+  var error_fn = options.error;
+
+  var me = {
+    api_url: api_url,
+    product_api_url: api_url + "/api:1/product/",
+    service_api_url: api_url + "/api:1/service/",
+    ERROR_CODES: {
+      BAD_TOKEN: 'BAD_TOKEN',
+      PRODUCT_ACCESS: 'PRODUCT_ACCESS'
+    },
+    // make an ajax call to murano API, calling general error handler
+    // instead of options.error if the token is bad.
+    // exceptions is a list of HTTP statuses that should be handled normally
+    ajax_token: function(options, exceptions) {
+      exceptions = exceptions || [];
+      var wrapped_error = options.error;
+      options.error = function(xhr, status, error) {
+        www_authenticate = xhr.getResponseHeader('www-authenticate');
+        if (xhr.status === 401 && www_authenticate && www_authenticate.substr(0,5) == "token") {
+          // token is invalid, so app needs to handle that
+          error_fn(me.ERROR_CODES.BAD_TOKEN, {
+            original_handler: function() {
+              if (wrapped_error) {
+                wrapped_error(xhr, status, error);
+              }
+            }
+          });
+        } else if (xhr.status === 404 && exceptions.indexOf(xhr.status) === -1) {
+          // product/device not found or not accessible to the user
+          error_fn(me.ERROR_CODES.PRODUCT_ACCESS, {
+            original_handler: function() {
+              if (wrapped_error) {
+                wrapped_error(xhr, status, error);
+              }
+            }
+          });
+        } else {
+          if (wrapped_error) {
+            wrapped_error(xhr, status, error);
+          } 
+        }
+      };
+      options.headers = options.headers || {};
+      options.headers.authorization = 'Token ' + _token;
+      $.ajax(options);
+    },
+    save_dashboard: function(url, dashboard_json, callback) {
+      me.ajax_token({
+        url: url,
+        method: 'PUT',
+        data: dashboard_json,
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        }, 
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    load_dashboard: function(url, callback) {
+      me.ajax_token({
+        url: url,
+        method: 'GET',
+        success: function (result) {
+          callback(null, result);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      }, [404]);
+    },
+    init: function(callback) {
+      // get session token
+      // intentionally using $.ajax here instead of ajax_token
+      $.ajax(me.api_url + '/session', {
+        success: function(data) {
+          if (!data.hasOwnProperty('apitoken')) {
+            callback('NO_TOKEN');
+          } else {
+            // set token for module
+            _token = data.apitoken;
+            // Check that the token is not expired
+            // intentionally using $.ajax here instead of ajax_token
+            $.ajax(me.api_url + '/api:1/token/' + _token, {
+              success: function(data) {
+                callback(null);
+              },
+              error: function(xhr, status, error) {
+                console.log(status, error);
+                // /session returned a token, but that token is not good (expired?)
+                callback('EXPIRED_TOKEN');
+              }
+            });
+          }
+        },
+        error: function(xhr, status, error) {
+          console.log(status, error);
+          callback('FAIL_TOKEN');
+        },
+        xhrFields: {
+          withCredentials: true
+        }
+      });
+    }
+  }
+  return me
+}
+
+/* Murano Okami API client library. Works like murano.js,
+ * but works with Okami devices instead of One Platform devices.
+ 
+   See murano.js for example usage.
+
+*/
+
+'use strict';
+const MuranoOkami = function(options) {
+  // websockets are different between Okami and 1P, so handle them here
+  var websocket_url = options.websocket_url;
+
+  var _muranoBase = new MuranoBase(options);
+
+  var _socket = null;
+  var _reconnect = null;
+  // callback functions for each resource alias
+  var _callbacks = {};
+
+  // set up a websocket connection to a device
+  function setup_websocket(product_id, device_id, resource_aliases, callback) {
+    // create websocket and authenticate 
+    var _reconnect = function(callback) {
+      _socket = new WebSocket(websocket_url + '/product/' + product_id + '/log/events', 'log-protocol');
+
+      _socket.onopen = function(evt) {
+        switch(_socket.readyState) {
+          case WebSocket.CONNECTING: 
+            console.log('CONNECTING The connection is not yet open.');
+            break;
+          case WebSocket.OPEN:
+            console.log('OPEN The connection is open and ready to communicate.');
+            break;
+          case WebSocket.CLOSING:
+            console.log('CLOSING The connection is in the process of closing.');
+            break;
+          case WebSocket.CLOSED:
+            console.log('CLOSED The connection is closed or couldn\'t be opened.');
+            break;
+        }
+        console.log('websocket connection opened.');
+
+        _socket.onmessage = function(evt) {
+          var data = JSON.parse(evt.data);
+          // filter to only this device and call callbacks with the new value
+          if (data.event === 'data_in' && data.identity === device_id) {
+            if (_callbacks[data.payload.alias]) {
+              _callbacks[data.payload.alias](data.payload.value);
+            }
+          }
+        }
+        // websocket is set up
+        callback(null);
+      }
+      _socket.onclose = function() {
+        console.log('websocket closed. Reconnecting...');
+        _reconnect(function(err) {
+          if (err) {
+            callback('_reconnect error', err);
+          }
+        });
+      }
+    }
+    _reconnect(function (err) {
+      callback(err);
+    });
+  }
+
+  // Usage: call init() to do sso, then connect() to connect websocket
+  const me = {
+    ERROR_CODES: _muranoBase.ERROR_CODES,
+    // This is like Murano.get_connected_device, except it doesn't return
+    // a device_rid.
+    get_connected_device: function() {
+      var device = null;
+      if (me.product_id && me.device_id) {
+        device = {
+          product_id: me.product_id,
+          // no device_rid. That's a One Platform thing.
+          device_id: me.device_id
+        };
+      }
+      return device;
+    },
+    /* create token and connect websocket to Okami. This websocket
+       is shared by all datasources for this device.  */
+    connect: function(product_id, device_id, callback) {
+      // save the current product and device IDs
+      me.product_id = product_id;
+      me.device_id = device_id;
+
+      // add freeboard datasources for each dataport
+      me.get_device_resources(product_id, device_id, function(err, resources) {
+        if (err) {
+          return callback(err);
+        }
+        // set up websocket
+        setup_websocket(product_id, device_id, _.pluck(resources, 'alias'), function(err) {
+          // device RID doesn't exist for Okami devices
+          var device_rid = null;
+          callback(err, device_rid, resources);            
+        });
+      });
+    },
+    /* disconnect websocket and drop token */
+    disconnect: function() {
+      _socket.onclose = function() {};
+      _socket.close()
+    },
+    /* save the dashboard configuration */
+    save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
+      console.log("TODO: dashboard save, see https://i.exosite.com/jira/browse/OKA-785");
+      return callback(null);
+      _muranoBase.save_dashboard(_muranoBase.service_api_url + product_id + '/gateway/dashboard/' + dashboard_id, dashboard_json, callback);
+    },
+    /* save the dashboard configuration */
+    load_dashboard: function(product_id, dashboard_id, callback) {
+      console.log("TODO: dashboard load, see https://i.exosite.com/jira/browse/OKA-785");
+      //return callback('Dashboard load not implemented');
+      _muranoBase.load_dashboard(_muranoBase.service_api_url + product_id + '/gateway/dashboard/' + dashboard_id, callback);
+    },
+    init: _muranoBase.init,
+    // Get latest point for device.
+    // calls back with [<timestamp>, <value>] for the resource
+    get_latest_point_for: function(product_id, device_id, device_rid, dataport_alias, callback) {
+      // read the device state, which includes the reported, set, and timestamp 
+      // for each resource that has been added and written.
+      _muranoBase.ajax_token({
+        url: _muranoBase.api_url + '/api:1/service/' + product_id + '/gateway/device/' + device_id + '/state',
+        method: 'GET',
+        success: function (result) {
+          console.log('get_latest_point_for result', result);
+
+          // result looks like this:
+          // {"temperature": {"reported": 48, "timestamp": 1487507119720923, "set": 48}, 
+          //  "humidity": {"reported": 88, "timestamp": 1487507119746862, "set": 88}}
+          
+          // has the resource been written yet?
+          if (_.has(result, dataport_alias)) {
+            var state = result[dataport_alias];
+            // timestamp is in milliseconds. Convert to seconds.
+            var timestamp_seconds = Math.round(state.timestamp / 1000000.0);
+            // Pass back the "reported" value which is the last one heard from the device. 
+            // Ignore the "set" value.
+            callback(null, [timestamp_seconds, state.reported]);
+          } else {
+            // pass null if resource has not been written yet
+            callback(null, null);
+          }
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
+    },
+    // Set resource
+    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
+      throw 'TODO: implement write_value_for';
+    },
+    // register callback to call when data comes in on dataport_alias
+    listen_for: function(product_id, device_rid, resource_alias, callback) {
+      _callbacks[resource_alias] = callback;
+    },
+    // unregister callback for data on dataport_alias
+    stop_listening_for: function(product_id, device_rid, resource_alias) {
+      _callbacks[resource_alias] = null;
+    },
+    /*
+     * Get an array of resources for device
+     * { rid: <rid>, alias: <alias> }
+     */
+    // TODO: this no longer needs to be exposed externally
+    get_device_resources: function(product_id, device_id, callback) {
+      _muranoBase.ajax_token({
+          url: _muranoBase.api_url + '/api:1/service/' + product_id + '/gateway',
+          method: 'GET',
+          success: function (result) {
+            // resources part of the product looks like this: 
+            // {'humidity': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}, 
+            //  'temperature': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}}
+            var resources = _.map(_.keys(result.resources), function(x) { return {alias: x}; });
+            console.log(resources);
+            callback(null, resources);
+          },
+          error: function (xhr, status, error) {
+            callback(error, xhr, status);
+          }
+        });
+    }
+  };
+
+  return me;
+}
+
 /* Murano API client library
  
  Example usage:
@@ -1995,56 +2312,19 @@ freeboard.loadDatasourcePlugin({
 */
 
 'use strict';
-const Murano = function(options) {
-  var _token = null;
-  var api_url = options.api_url;
+const MuranoOneP = function(options) {
   var websocket_url = options.websocket_url;
-  var error_fn = options.error;
-  var URL_base = api_url + "/api:1/product/";
+
+  var _muranoBase = new MuranoBase(options);
+
   var URL_rpc = "/proxy/onep:v1/rpc/process";
   var URL_provision = "/proxy/provision"
   var ONEP_TOKEN_TTL_SECONDS = 86400; // 24 hours
 
-  // make an ajax call to murano API, calling general error handler
-  // instead of options.error if the token is bad.
-  // exceptions is a list of HTTP statuses that should be handled normally
-  function ajax_token(options, exceptions) {
-    exceptions = exceptions || [];
-    var wrapped_error = options.error;
-    options.error = function(xhr, status, error) {
-      www_authenticate = xhr.getResponseHeader('www-authenticate');
-      if (xhr.status === 401 && www_authenticate && www_authenticate.substr(0,5) == "token") {
-        // token is invalid, so app needs to handle that
-        error_fn(me.ERROR_CODES.BAD_TOKEN, {
-          original_handler: function() {
-            if (wrapped_error) {
-              wrapped_error(xhr, status, error);
-            }
-          }
-        });
-      } else if (xhr.status === 404 && exceptions.indexOf(xhr.status) === -1) {
-        // product/device not found or not accessible to the user
-        error_fn(me.ERROR_CODES.PRODUCT_ACCESS, {
-          original_handler: function() {
-            if (wrapped_error) {
-              wrapped_error(xhr, status, error);
-            }
-          }
-        });
-      } else {
-        if (wrapped_error) {
-          wrapped_error(xhr, status, error);
-        } 
-      }
-    };
-    options.headers = options.headers || {};
-    options.headers.authorization = 'Token ' + _token;
-    $.ajax(options);
-  }
 
   function provision_get(product_id, path, callback) {
-    ajax_token({
-      url: URL_base + product_id + URL_provision + path,
+    _muranoBase.ajax_token({
+      url: _muranoBase.product_api_url + product_id + URL_provision + path,
       method: "GET",
         success: function (result) {
         callback(null, result);
@@ -2055,8 +2335,8 @@ const Murano = function(options) {
     });
   }
   function RPC(product_id, request, callback) {
-    ajax_token({
-      url: URL_base + product_id + URL_rpc,
+    _muranoBase.ajax_token({
+      url: _muranoBase.product_api_url + product_id + URL_rpc,
       dataType: "JSON",
       method: "POST",
       data: JSON.stringify(request),
@@ -2202,10 +2482,7 @@ const Murano = function(options) {
 
   // Usage: call init() to do sso, then connect() to connect websocket
   const me = {
-    ERROR_CODES: {
-      BAD_TOKEN: 'BAD_TOKEN',
-      PRODUCT_ACCESS: 'PRODUCT_ACCESS'
-    },
+    ERROR_CODES: _muranoBase.ERROR_CODES,
     get_connected_device: function() {
       var device = null;
       if (me.product_id && me.device_rid) {
@@ -2232,7 +2509,7 @@ const Murano = function(options) {
         me.device_rid = device_rid;
 
         // add freeboard datasources for each dataport
-        me.get_device_dataports(product_id, device_rid, function(err, dataports) {
+        me.get_device_resources(product_id, device_rid, function(err, dataports) {
           if (err) {
             return callback(err);
           }
@@ -2249,67 +2526,13 @@ const Murano = function(options) {
       _socket.close()
     },
     save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
-      ajax_token({
-        url: URL_base + product_id + '/dashboard/' + dashboard_id,
-        method: 'PUT',
-        data: dashboard_json,
-        headers: {
-          'content-type': 'application/json; charset=utf-8'
-        }, 
-        success: function (result) {
-          callback(null, result);
-        },
-        error: function (xhr, status, error) {
-          callback(error, xhr, status);
-        }
-      });
+      _muranoBase.save_dashboard(_muranoBase.product_api_url + product_id + '/dashboard/' + dashboard_id, dashboard_json, callback);
     },
     load_dashboard: function(product_id, dashboard_id, callback) {
-      ajax_token({
-        url: URL_base + product_id + '/dashboard/' + dashboard_id,
-        method: 'GET',
-        success: function (result) {
-          callback(null, result);
-        },
-        error: function (xhr, status, error) {
-          callback(error, xhr, status);
-        }
-      }, [404]);
+      _muranoBase.load_dashboard(_muranoBase.product_api_url + product_id + '/dashboard/' + dashboard_id, callback);
     },
-    init: function(callback) {
-      // get session token
-      // intentionally using $.ajax here instead of ajax_token
-      $.ajax(api_url + '/session', {
-        success: function(data) {
-          if (!data.hasOwnProperty('apitoken')) {
-            callback('NO_TOKEN');
-          } else {
-            // set token for module
-            _token = data.apitoken;
-            // Check that the token is not expired
-            // intentionally using $.ajax here instead of ajax_token
-            $.ajax(api_url + '/api:1/token/' + _token, {
-              success: function(data) {
-                callback(null);
-              },
-              error: function(xhr, status, error) {
-                console.log(status, error);
-                // /session returned a token, but that token is not good (expired?)
-                callback('EXPIRED_TOKEN');
-              }
-            });
-          }
-        },
-        error: function(xhr, status, error) {
-          console.log(status, error);
-          callback('FAIL_TOKEN');
-        },
-        xhrFields: {
-          withCredentials: true
-        }
-      });
-    },
-    get_latest_point_for: function(product_id, device_rid, dataport_alias, callback) {
+    init: _muranoBase.init,
+    get_latest_point_for: function(product_id, device_id, device_rid, dataport_alias, callback) {
       RPC(product_id, {auth: {client_id: device_rid}, calls: [{
         id: 0, 
         procedure: 'read',
@@ -2355,7 +2578,7 @@ const Murano = function(options) {
      * Look up RID by serial number
      */
     get_device_rid_by_identity: function(product_id, identity, callback) {
-      var url = URL_base + product_id + URL_provision;
+      var url = _muranoBase.product_api_url + product_id + URL_provision;
       provision_get(product_id, '/manage/model/' + product_id + '/' + identity, function(err, result) {
         if (err) { return callback(err); }
         callback(err, result.split(',')[1]);
@@ -2365,7 +2588,7 @@ const Murano = function(options) {
      * Get an array of dataports for device
      * { rid: <rid>, alias: <alias> }
      */
-    get_device_dataports: function(product_id, device_rid, callback) {
+    get_device_resources: function(product_id, device_rid, callback) {
       RPC(product_id, 
         {auth: {client_id: device_rid}, calls: [
           {id: 0, procedure: 'listing', arguments: [{alias: ''}, ['dataport'], {}]},
@@ -2374,7 +2597,7 @@ const Murano = function(options) {
         function(err, result) {
           if (err) { return callback(err); }
           if (result[0].status !== 'ok' || result[1].status !== 'ok') { 
-            return callback ('Bad status from RPC in get_device_dataports'); 
+            return callback ('Bad status from RPC in get_device_resources'); 
           }
           rids = result[0].result.dataport;
           aliases = result[1].result.aliases;

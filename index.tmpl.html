@@ -14,12 +14,14 @@
       var API_URL = 'https://bizapi-dev.hosted.exosite.io';
       var UI_URL = 'https://www.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
+      var WEBSOCKET_OKAMI_URL = 'wss://okami-logging-api-dev.hosted.exosite.io';
       var MIXPANEL_TOKEN = '9bf8cef0e0134dbe337702ab77019dfa';
 <!-- @endif -->
 <!-- @if NODE_ENV == 'DEVELOPMENT_SERVER' -->
       var API_URL = 'https://bizapi-dev.hosted.exosite.io';
       var UI_URL = 'https://www.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
+      var WEBSOCKET_OKAMI_URL = 'wss://okami-logging-api-dev.hosted.exosite.io';
       var MIXPANEL_TOKEN = '9bf8cef0e0134dbe337702ab77019dfa';
 <!-- @endif -->
 <!-- @if NODE_ENV == 'STAGING' -->
@@ -123,7 +125,7 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
               });
             }
 
-            function create_default_dashboard(product_id, device_id, device_rid, dataports) {
+            function create_default_dashboard(product_id, device_id, dashboard_id, dataports) {
               // Do nothing for now
             }
 
@@ -136,6 +138,7 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
 
               var product_id = getParameterByName('product');
               var device_id = getParameterByName('device');
+
               mixpanel.track('Dashboard Loaded', {
                 "Product ID": product_id,
                 "Device ID": device_id
@@ -157,13 +160,17 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
                     'Error connecting websocket.',
                     'Error connecting websocket.' + err);
                 }
-                freeboard.setDeviceRid(device_rid);
+                // 1P devices use RID as dashboard ID, Okami devices use device ID
+                var dashboard_id = is_okami_device ? device_id : device_rid;
 
-                freeboard.loadDashboardFromCloud(product_id, device_rid, function(err) {
+                freeboard.setIsOkamiDevice(is_okami_device);
+                freeboard.setDashboardId(dashboard_id);
+
+                freeboard.loadDashboardFromCloud(product_id, dashboard_id, function(err) {
                   if (err) {
                     console.log('No saved device dashboard found. ' +
                       'Initializing a new one. (', err, ')');
-                    create_default_dashboard(product_id, device_rid, dataports);
+                    create_default_dashboard(product_id, dashboard_id, dataports);
                   } else {
                     console.log('Loaded saved device dashboard.');
                   }
@@ -197,11 +204,26 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
             }
 
             showControls(false);
-            var murano = new Murano({
-              api_url: API_URL,
-              websocket_url: WEBSOCKET_URL,
-              error: general_murano_error
-            });
+
+            // support both Murano-1P and Murano-Okami products
+            // if version=2 is passed in the query string, it's an
+            // Okami device.
+            var is_okami_device = getParameterByName('version') === '2';
+            console.log('is_okami_device', is_okami_device);
+
+            if (is_okami_device) {
+              murano = new MuranoOkami({
+                api_url: API_URL,
+                websocket_url: WEBSOCKET_OKAMI_URL,
+                error: general_murano_error
+              });
+            } else {
+              murano = new MuranoOneP({
+                api_url: API_URL,
+                websocket_url: WEBSOCKET_URL,
+                error: general_murano_error
+              });
+            }
             murano.init(function(err) {
               if (err) {
                 console.log(err);

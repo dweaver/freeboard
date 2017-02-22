@@ -301,15 +301,27 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		}
 	});
 
+  this.muranoIsOkamiDevice = ko.observable(false);
   this.muranoProductId = ko.observable();
   this.muranoDeviceId = ko.observable();
-  this.muranoDeviceRid = ko.observable();
+  // dashboard ID is the RID (1P) or Identity (Okami)
+  // note that it's only unique within the
+  // product namespace.
+  this.muranoDashboardId = ko.observable();
   this.muranoProductUrl = ko.computed(function() {
-    return UI_URL + '/product/' + self.muranoProductId();
+    if (!self.muranoIsOkamiDevice) {
+      return UI_URL + '/product/' + self.muranoProductId();
+    } else {
+      return UI_URL + '/business/connectivity/' + self.muranoProductId();
+    }
   });
   this.muranoDeviceUrl = ko.computed(function() {
-    return UI_URL + '/product/' + self.muranoProductId() + 
-      '#/detail/' + self.muranoDeviceId() + '/resources';
+    if (!self.muranoIsOkamiDevice) {
+      return UI_URL + '/product/' + self.muranoProductId() + 
+        '#/detail/' + self.muranoDeviceId() + '/resources';
+    } else {
+      return UI_URL + '/business/connectivity/' + self.muranoProductId() + '/devices/' + self.muranoDeviceId();
+    }
   });
 
 	this.header_image = ko.observable();
@@ -603,7 +615,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
     var blob = JSON.stringify(self.serialize());
     freeboard.murano.save_dashboard(
       self.muranoProductId(),
-      self.muranoDeviceRid(),
+      self.muranoDashboardId(),
       blob, 
       function(err, result) {
         if (err) {
@@ -618,10 +630,10 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
     self.saveDashboardToCloud();
 	}
 
-  this.loadDashboardFromCloud = function(product_id, device_rid, callback) {
+  this.loadDashboardFromCloud = function(product_id, dashboard_id, callback) {
     freeboard.murano.load_dashboard(
       product_id,
-      device_rid,
+      dashboard_id,
       function(err, result) {
         if (err) {
           callback(err);
@@ -633,7 +645,7 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 
   this.loadDashboardFromCloudClicked = function(_thisref, event)
   {
-    self.loadDashboardFromCloud(self.muranoProductId(), muranoDeviceRid(), function(err) {
+    self.loadDashboardFromCloud(self.muranoProductId(), muranoDashboardId(), function(err) {
       if (err) {
         console.log('Error loading dashboard from cloud', err);
       }
@@ -3035,9 +3047,9 @@ var freeboard = (function()
 		{
 			theFreeboardModel.loadDashboard(configuration, callback);
 		},
-    loadDashboardFromCloud: function(product_id, device_rid, callback) 
+    loadDashboardFromCloud: function(product_id, dashboard_id, callback) 
     {
-      theFreeboardModel.loadDashboardFromCloud(product_id, device_rid, callback);
+      theFreeboardModel.loadDashboardFromCloud(product_id, dashboard_id, callback);
     },
 		serialize           : function()
 		{
@@ -3207,8 +3219,11 @@ var freeboard = (function()
       theFreeboardModel.muranoProductId(product_id);
       theFreeboardModel.muranoDeviceId(device_id);
     },
-    setDeviceRid: function(device_rid) {
-      theFreeboardModel.muranoDeviceRid(device_rid);
+    setDashboardId: function(dashboard_id) {
+      theFreeboardModel.muranoDashboardId(dashboard_id);
+    },
+    setIsOkamiDevice: function(is_okami_device) {
+      theFreeboardModel.muranoIsOkamiDevice(is_okami_device)
     }
 	};
 }());
