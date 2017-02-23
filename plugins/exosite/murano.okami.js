@@ -109,14 +109,10 @@ const MuranoOkami = function(options) {
     },
     /* save the dashboard configuration */
     save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
-      console.log("TODO: dashboard save, see https://i.exosite.com/jira/browse/OKA-785");
-      return callback(null);
       _muranoBase.save_dashboard(_muranoBase.service_api_url + product_id + '/gateway/dashboard/' + dashboard_id, dashboard_json, callback);
     },
     /* save the dashboard configuration */
     load_dashboard: function(product_id, dashboard_id, callback) {
-      console.log("TODO: dashboard load, see https://i.exosite.com/jira/browse/OKA-785");
-      //return callback('Dashboard load not implemented');
       _muranoBase.load_dashboard(_muranoBase.service_api_url + product_id + '/gateway/dashboard/' + dashboard_id, callback);
     },
     init: _muranoBase.init,
