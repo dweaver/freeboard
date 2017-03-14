@@ -21,7 +21,7 @@ const MuranoOkami = function(options) {
   function setup_websocket(product_id, device_id, resource_aliases, callback) {
     // create websocket and authenticate 
     var _reconnect = function(callback) {
-      _socket = new WebSocket(websocket_url + '/product/' + product_id + '/log/events', 'log-protocol');
+      _socket = new WebSocket(websocket_url + '/api:1/log/' + product_id + '/events?token=' + _muranoBase.token());
 
       _socket.onopen = function(evt) {
         switch(_socket.readyState) {
@@ -125,8 +125,6 @@ const MuranoOkami = function(options) {
         url: _muranoBase.api_url + '/api:1/service/' + product_id + '/gateway/device/' + device_id + '/state',
         method: 'GET',
         success: function (result) {
-          console.log('get_latest_point_for result', result);
-
           // result looks like this:
           // {"temperature": {"reported": 48, "timestamp": 1487507119720923, "set": 48}, 
           //  "humidity": {"reported": 88, "timestamp": 1487507119746862, "set": 88}}
