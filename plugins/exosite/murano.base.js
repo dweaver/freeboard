@@ -19,6 +19,9 @@ const MuranoBase = function(options) {
       BAD_TOKEN: 'BAD_TOKEN',
       PRODUCT_ACCESS: 'PRODUCT_ACCESS'
     },
+    token: function() {
+      return _token;
+    },
     // make an ajax call to murano API, calling general error handler
     // instead of options.error if the token is bad.
     // exceptions is a list of HTTP statuses that should be handled normally

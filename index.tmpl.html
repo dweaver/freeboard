@@ -14,26 +14,28 @@
       var API_URL = 'https://bizapi-dev.hosted.exosite.io';
       var UI_URL = 'https://www.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
-      var WEBSOCKET_OKAMI_URL = 'wss://okami-logging-api-dev.hosted.exosite.io';
+      var WEBSOCKET_OKAMI_URL = 'wss://bizapi-dev.hosted.exosite.io';
       var MIXPANEL_TOKEN = '9bf8cef0e0134dbe337702ab77019dfa';
 <!-- @endif -->
 <!-- @if NODE_ENV == 'DEVELOPMENT_SERVER' -->
       var API_URL = 'https://bizapi-dev.hosted.exosite.io';
       var UI_URL = 'https://www.exosite-dev.com';
       var WEBSOCKET_URL = 'wss://m2-dev.exosite.com/ws';
-      var WEBSOCKET_OKAMI_URL = 'wss://okami-logging-api-dev.hosted.exosite.io';
+      var WEBSOCKET_OKAMI_URL = 'wss://bizapi-dev.hosted.exosite.io';
       var MIXPANEL_TOKEN = '9bf8cef0e0134dbe337702ab77019dfa';
 <!-- @endif -->
 <!-- @if NODE_ENV == 'STAGING' -->
       var API_URL = 'https://bizapi-staging.hosted.exosite.io';
       var UI_URL = 'https://www.exosite-staging.com';
       var WEBSOCKET_URL = 'wss://m2-stg.exosite.com/ws';
+      var WEBSOCKET_OKAMI_URL = 'wss://bizapi-staging.hosted.exosite.io';
       var MIXPANEL_TOKEN = '9acb89ce8f0af9b49cfde6c8117038ea';
 <!-- @endif -->
 <!-- @if NODE_ENV == 'PRODUCTION' -->
       var API_URL = 'https://bizapi.hosted.exosite.io';
       var UI_URL = 'https://www.exosite.io';
       var WEBSOCKET_URL = 'wss://m2.exosite.com/ws';
+      var WEBSOCKET_OKAMI_URL = 'wss://bizapi.hosted.exosite.io';
       var MIXPANEL_TOKEN = 'bc5eb2530f38c61dd6160acb0674c4b2';
 <!-- @endif -->
     </script>
@@ -209,7 +211,6 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
             // if version=2 is passed in the query string, it's an
             // Okami device.
             var is_okami_device = getParameterByName('version') === '2';
-            console.log('is_okami_device', is_okami_device);
 
             if (is_okami_device) {
               murano = new MuranoOkami({
