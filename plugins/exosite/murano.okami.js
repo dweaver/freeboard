@@ -44,9 +44,15 @@ const MuranoOkami = function(options) {
           var data = JSON.parse(evt.data);
           // filter to only this device and call callbacks with the new value
           if (data.event === 'data_in' && data.identity === device_id) {
-            if (_callbacks[data.payload.alias]) {
-              _callbacks[data.payload.alias](data.payload.value);
-            }
+            // get the most recent message in the array
+            var message = _.max(data.payload, 
+              function(message) { return message.timestamp; });
+
+            _.each(_.keys(message.values), function(alias) {
+              if (_callbacks[alias]) {
+                _callbacks[alias](message.values[alias]);
+              }
+            });
           }
         }
         // websocket is set up
@@ -173,7 +179,6 @@ const MuranoOkami = function(options) {
             // {'humidity': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}, 
             //  'temperature': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}}
             var resources = _.map(_.keys(result.resources), function(x) { return {alias: x}; });
-            console.log(resources);
             callback(null, resources);
           },
           error: function (xhr, status, error) {
