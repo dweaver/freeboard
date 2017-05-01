@@ -43,12 +43,15 @@ const MuranoOkami = function(options) {
         _socket.onmessage = function(evt) {
           var data = JSON.parse(evt.data);
           // filter to only this device and call callbacks with the new value
-          if (data.event === 'data_in' && data.identity === device_id) {
+          console.log('data:');
+          if (data.type === 'data_in' && data.identity === device_id) {
             // get the most recent message in the array
             var message = _.max(data.payload, 
               function(message) { return message.timestamp; });
 
+            console.log(message);
             _.each(_.keys(message.values), function(alias) {
+              console.log(alias);
               if (_callbacks[alias]) {
                 _callbacks[alias](message.values[alias]);
               }
@@ -115,11 +118,11 @@ const MuranoOkami = function(options) {
     },
     /* save the dashboard configuration */
     save_dashboard: function(product_id, dashboard_id, dashboard_json, callback) {
-      _muranoBase.save_dashboard(_muranoBase.service_api_url + product_id + '/gateway/dashboard/' + dashboard_id, dashboard_json, callback);
+      _muranoBase.save_dashboard(_muranoBase.service_api_url + product_id + '/device2/dashboard/' + dashboard_id, dashboard_json, callback);
     },
     /* save the dashboard configuration */
     load_dashboard: function(product_id, dashboard_id, callback) {
-      _muranoBase.load_dashboard(_muranoBase.service_api_url + product_id + '/gateway/dashboard/' + dashboard_id, callback);
+      _muranoBase.load_dashboard(_muranoBase.service_api_url + product_id + '/device2/dashboard/' + dashboard_id, callback);
     },
     init: _muranoBase.init,
     // Get latest point for device.
@@ -128,7 +131,7 @@ const MuranoOkami = function(options) {
       // read the device state, which includes the reported, set, and timestamp 
       // for each resource that has been added and written.
       _muranoBase.ajax_token({
-        url: _muranoBase.api_url + '/api:1/service/' + product_id + '/gateway/device/' + device_id + '/state',
+        url: _muranoBase.api_url + '/api:1/service/' + product_id + '/device2/identity/' + device_id + '/state',
         method: 'GET',
         success: function (result) {
           // result looks like this:
@@ -172,7 +175,7 @@ const MuranoOkami = function(options) {
     // TODO: this no longer needs to be exposed externally
     get_device_resources: function(product_id, device_id, callback) {
       _muranoBase.ajax_token({
-          url: _muranoBase.api_url + '/api:1/service/' + product_id + '/gateway',
+          url: _muranoBase.api_url + '/api:1/service/' + product_id + '/device2',
           method: 'GET',
           success: function (result) {
             // resources part of the product looks like this: 
