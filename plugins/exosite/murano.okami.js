@@ -43,15 +43,12 @@ const MuranoAdc = function(options) {
         _socket.onmessage = function(evt) {
           var data = JSON.parse(evt.data);
           // filter to only this device and call callbacks with the new value
-          console.log('data:');
           if (data.type === 'data_in' && data.identity === device_id) {
             // get the most recent message in the array
             var message = _.max(data.payload, 
               function(message) { return message.timestamp; });
 
-            console.log(message);
             _.each(_.keys(message.values), function(alias) {
-              console.log(alias);
               if (_callbacks[alias]) {
                 _callbacks[alias](message.values[alias]);
               }
