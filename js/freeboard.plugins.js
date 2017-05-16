@@ -1966,7 +1966,7 @@ freeboard.loadDatasourcePlugin({
 }());
 
 /*
- Common functionality between MuranoOneP and MuranoOkami.
+ Common functionality between MuranoOneP and MuranoAdc.
  Specifically, bizapi calls and dashboard loading
  and saving.
 */
@@ -2090,16 +2090,16 @@ const MuranoBase = function(options) {
   return me
 }
 
-/* Murano Okami API client library. Works like murano.js,
- * but works with Okami devices instead of One Platform devices.
+/* Murano ADC API client library. Works like murano.js,
+ * but works with ADC devices instead of One Platform devices.
  
    See murano.js for example usage.
 
 */
 
 'use strict';
-const MuranoOkami = function(options) {
-  // websockets are different between Okami and 1P, so handle them here
+const MuranoAdc = function(options) {
+  // websockets are different between ADC and 1P, so handle them here
   var websocket_url = options.websocket_url;
 
   var _muranoBase = new MuranoBase(options);
@@ -2183,7 +2183,7 @@ const MuranoOkami = function(options) {
       }
       return device;
     },
-    /* create token and connect websocket to Okami. This websocket
+    /* create token and connect websocket to ADC. This websocket
        is shared by all datasources for this device.  */
     connect: function(product_id, device_id, callback) {
       // save the current product and device IDs
@@ -2197,7 +2197,7 @@ const MuranoOkami = function(options) {
         }
         // set up websocket
         setup_websocket(product_id, device_id, _.pluck(resources, 'alias'), function(err) {
-          // device RID doesn't exist for Okami devices
+          // device RID doesn't exist for ADC devices
           var device_rid = null;
           callback(err, device_rid, resources);            
         });

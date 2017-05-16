@@ -1,5 +1,5 @@
 /*
- Common functionality between MuranoOneP and MuranoOkami.
+ Common functionality between MuranoOneP and MuranoAdc.
  Specifically, bizapi calls and dashboard loading
  and saving.
 */
