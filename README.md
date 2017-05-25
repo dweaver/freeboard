@@ -31,6 +31,8 @@ Freeboard can be run entirely from a local hard drive. Simply download/clone the
 
 Then run a index.html or index-dev.html through a webserver.
 
+NOTE: Scroll down to the bottom for additional instructions for the Exosite fork of Freeboard.
+
 ### API
 
 While freeboard runs as a stand-alone app out of the box, you can augment and control it from javascript with a simple API. All API calls are made on the `freeboard` singleton object.
@@ -178,6 +180,30 @@ $(function()
 
 #.) Load a dashboard for a new device, verify resources are listed
 #.) Load a dashboard for an old device, verify resources are listed
+
+### Exosite Freeboard
+
+Exosite's Murano SaaS application uses Freeboard as a dashboarding tool, but makes a number of modifications to add single sign-on and Exosite-specific datasources and styles. Here are some details for the Exosite folks who maintain this repo. Most of the interesting code is in `plugins/exosite`, though 
+
+One of the most surprising things about the Freeboard repo is that it builds the html "in place" in the root directory rather than a dist/ directory, and that the build artifacts such as minified JavaScript are under source control. For practical purposes it just means you need to ignore a number of files, but if someone became sufficiently annoyed it would be worth changing the build process.
+
+
+#### Building/deploying
+
+The standard Freeboard instructions above are roughly accurate, but a few additional steps are needed to get single sign on. Here's how I develop locally.
+
+- `git clone git@github.com:exosite/freeboard.git`
+- `git checkout develop`
+- `git checkout -b danweaver/<feature-name>`
+- `npm install`
+- `gulp` - this builds the local development version by default.
+- `python -m SimpleHTTPServer 80`
+- Add this line to /etc/hosts: `127.0.0.1 freeboarddev.hosted.exosite.io`
+- In your browser, navigate to a dashboard for a device `http://freeboarddev.hosted.exosite.io/?product=<product-id>&device=<device-id>&version=2`
+- You'll be redirected to exosite-dev where you can sign in and then get redirected to the dashboard.
+
+To deploy to dev/staging/prod, push to the develop/staging/master branches and then run the appropriate Jenkins job (https://build.exosite.com/job/device-dashboard-dev/, https://build.exosite.com/job/device-dashboard-staging/, https://build.exosite.com/job/device-dashboard-PROD/). I generally start with a PR against develop and then fast forward the other branches when they're ready for QA.
+
 
 ### Copyright 
 

@@ -4967,6 +4967,7 @@ freeboard.loadDatasourcePlugin({
     this.writeNow = function(value) {
       freeboard.murano.write_value_for(
         currentSettings.product_id,
+        currentSettings.device_id,
         currentSettings.device_rid,
         currentSettings.dataport_alias, 
         value, function (err) {
@@ -5367,15 +5368,12 @@ const MuranoAdc = function(options) {
         _socket.onmessage = function(evt) {
           var data = JSON.parse(evt.data);
           // filter to only this device and call callbacks with the new value
-          console.log('data:');
           if (data.type === 'data_in' && data.identity === device_id) {
             // get the most recent message in the array
             var message = _.max(data.payload, 
               function(message) { return message.timestamp; });
 
-            console.log(message);
             _.each(_.keys(message.values), function(alias) {
-              console.log(alias);
               if (_callbacks[alias]) {
                 _callbacks[alias](message.values[alias]);
               }
@@ -5468,8 +5466,9 @@ const MuranoAdc = function(options) {
             // timestamp is in milliseconds. Convert to seconds.
             var timestamp_seconds = Math.round(state.timestamp / 1000000.0);
             // Pass back the "reported" value which is the last one heard from the device. 
-            // Ignore the "set" value.
-            callback(null, [timestamp_seconds, state.reported]);
+            // If there's no reported value, pass back the set value.
+            var value = _.has(state, 'reported') ? state.reported : state.set;
+            callback(null, [timestamp_seconds, value]);
           } else {
             // pass null if resource has not been written yet
             callback(null, null);
@@ -5481,8 +5480,23 @@ const MuranoAdc = function(options) {
       });
     },
     // Set resource
-    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
-      throw 'TODO: implement write_value_for';
+    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, callback) {
+      // read the device state, which includes the reported, set, and timestamp 
+      // for each resource that has been added and written.
+      var body = {};
+      body[dataport_alias] = value;
+      _muranoBase.ajax_token({
+        url: _muranoBase.api_url + '/api:1/service/' + product_id + '/device2/identity/' + device_id + '/state',
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        data: JSON.stringify(body),
+        success: function (result) {
+          callback(null);
+        },
+        error: function (xhr, status, error) {
+          callback(error, xhr, status);
+        }
+      });
     },
     // register callback to call when data comes in on dataport_alias
     listen_for: function(product_id, device_rid, resource_alias, callback) {
@@ -5788,7 +5802,7 @@ const MuranoOneP = function(options) {
           callback(err, result[0].result[0]);
         });
     },
-    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
+    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, callback) {
       RPC(product_id, {auth: {client_id: device_rid}, calls: [{
         id: 0, 
         procedure: 'write',
