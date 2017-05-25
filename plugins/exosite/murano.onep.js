@@ -268,7 +268,7 @@ const MuranoOneP = function(options) {
           callback(err, result[0].result[0]);
         });
     },
-    write_value_for: function(product_id, device_rid, dataport_alias, value, callback) {
+    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, callback) {
       RPC(product_id, {auth: {client_id: device_rid}, calls: [{
         id: 0, 
         procedure: 'write',
