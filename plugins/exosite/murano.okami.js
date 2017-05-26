@@ -155,10 +155,22 @@ const MuranoAdc = function(options) {
       });
     },
     // Set resource
-    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, callback) {
+    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, format, callback) {
       // read the device state, which includes the reported, set, and timestamp 
       // for each resource that has been added and written.
       var body = {};
+      if (typeof value === 'string') {
+        // convert number and boolean values to the
+        // correct type from string.
+        switch (format) {
+          case 'number':
+            value = parseFloat(value);
+            break;
+          case 'boolean':
+            value = parseBool(value);
+            break;
+        }
+      }
       body[dataport_alias] = value;
       _muranoBase.ajax_token({
         url: _muranoBase.api_url + '/api:1/service/' + product_id + '/device2/identity/' + device_id + '/state',
@@ -194,7 +206,10 @@ const MuranoAdc = function(options) {
             // resources part of the product looks like this: 
             // {'humidity': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}, 
             //  'temperature': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}}
-            var resources = _.map(_.keys(result.resources), function(x) { return {alias: x}; });
+            var resources = _.map(_.keys(result.resources), function(alias) { return {
+              alias: alias, 
+              format: result.resources[alias].format}; 
+            });
             callback(null, resources);
           },
           error: function (xhr, status, error) {

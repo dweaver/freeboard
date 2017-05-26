@@ -1738,7 +1738,9 @@ freeboard.loadDatasourcePlugin({
         currentSettings.device_id,
         currentSettings.device_rid,
         currentSettings.dataport_alias, 
-        value, function (err) {
+        value,
+        currentSettings.format,
+        function (err) {
           if (err) {
             // TODO: display error to UI
             console.log('Error writing to ' + currentSettings.dataport_alias, err);
@@ -1815,6 +1817,12 @@ freeboard.loadDatasourcePlugin({
 				name: "dataport_alias",
 				display_name: "Resource Alias",
 				"description": "Example: food_level",
+				type: "text"
+			},
+			{
+				name: "format",
+				display_name: "Format",
+				configurable: false,
 				type: "text"
 			}
 		],
@@ -2248,10 +2256,22 @@ const MuranoAdc = function(options) {
       });
     },
     // Set resource
-    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, callback) {
+    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, format, callback) {
       // read the device state, which includes the reported, set, and timestamp 
       // for each resource that has been added and written.
       var body = {};
+      if (typeof value === 'string') {
+        // convert number and boolean values to the
+        // correct type from string.
+        switch (format) {
+          case 'number':
+            value = parseFloat(value);
+            break;
+          case 'boolean':
+            value = parseBool(value);
+            break;
+        }
+      }
       body[dataport_alias] = value;
       _muranoBase.ajax_token({
         url: _muranoBase.api_url + '/api:1/service/' + product_id + '/device2/identity/' + device_id + '/state',
@@ -2287,7 +2307,10 @@ const MuranoAdc = function(options) {
             // resources part of the product looks like this: 
             // {'humidity': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}, 
             //  'temperature': {'unit': '', 'allowed': ['0:100'], 'format': 'number', 'settable': False}}
-            var resources = _.map(_.keys(result.resources), function(x) { return {alias: x}; });
+            var resources = _.map(_.keys(result.resources), function(alias) { return {
+              alias: alias, 
+              format: result.resources[alias].format}; 
+            });
             callback(null, resources);
           },
           error: function (xhr, status, error) {
@@ -2570,7 +2593,7 @@ const MuranoOneP = function(options) {
           callback(err, result[0].result[0]);
         });
     },
-    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, callback) {
+    write_value_for: function(product_id, device_id, device_rid, dataport_alias, value, format, callback) {
       RPC(product_id, {auth: {client_id: device_rid}, calls: [{
         id: 0, 
         procedure: 'write',
