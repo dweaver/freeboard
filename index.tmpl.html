@@ -121,7 +121,8 @@ mixpanel.init(MIXPANEL_TOKEN);</script><!-- end Mixpanel -->
                     product_id: product_id,
                     device_id: device_id,
                     device_rid: device_rid,
-                    dataport_alias: dataport.alias
+                    dataport_alias: dataport.alias,
+                    format: dataport.format || ''
                   }
                 });
               });

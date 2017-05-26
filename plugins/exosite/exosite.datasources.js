@@ -33,7 +33,9 @@
         currentSettings.device_id,
         currentSettings.device_rid,
         currentSettings.dataport_alias, 
-        value, function (err) {
+        value,
+        currentSettings.format,
+        function (err) {
           if (err) {
             // TODO: display error to UI
             console.log('Error writing to ' + currentSettings.dataport_alias, err);
@@ -110,6 +112,12 @@
 				name: "dataport_alias",
 				display_name: "Resource Alias",
 				"description": "Example: food_level",
+				type: "text"
+			},
+			{
+				name: "format",
+				display_name: "Format",
+				configurable: false,
 				type: "text"
 			}
 		],
