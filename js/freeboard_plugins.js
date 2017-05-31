@@ -5500,7 +5500,7 @@ const MuranoAdc = function(options) {
             value = parseFloat(value);
             break;
           case 'boolean':
-            value = parseBool(value);
+            value = !(value.toLowerCase() === 'false' || value === '0')
             break;
         }
       }
