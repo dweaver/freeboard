@@ -162,6 +162,7 @@ module.exports = function(grunt) {
 
     var dev_server_tasks = ['env:dev_server', 'preprocess:dev_server'].concat(base_tasks.slice(0));
     grunt.registerTask('dev_server', dev_server_tasks);
+    grunt.registerTask('dev', 'dev_server');
 
     grunt.registerTask('default', ['dev_local', 'watch']);
 
