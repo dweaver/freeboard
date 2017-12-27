@@ -7,7 +7,7 @@ banner () {
   echo "Running Exosite Device Dashboard:"
   echo ""
   echo "Env:"
-  echo " - Environment: $ENVIRONMENT"
+  echo " - ENVIRONMENT: $ENVIRONMENT"
   echo ""
   echo "============ LOGS =============="
 }
