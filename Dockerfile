@@ -55,7 +55,7 @@ RUN addgroup -g $GID app 2> /dev/null; \
     GROUP=$(getent group $GID | cut -d: -f1); \
     adduser -D -u $UID -G $GROUP -h $HOME -g app -s /bin/sh app && \
     chown -R $UID:$GID . /run/nginx /tmp/nginx /var/log/nginx /var/cache/nginx /var/lib/nginx && \
-    chmod -R g=rwX,o= .
+    chmod -R g=rwX,o=rwX . /tmp/nginx /var/log/nginx /var/lib/nginx
 
 # Switch to user
 USER $UID:$GID
