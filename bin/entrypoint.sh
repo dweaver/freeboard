@@ -16,7 +16,8 @@ banner () {
 ln -sfn "index.html.$ENVIRONMENT" index.html
 
 case "${1:-run}" in
-#  run) banner && exec nginx -p ~/nginx -c nginx.conf;;
-  run) banner && exec nginx -g "daemon off;";;
+  run) banner && exec nginx -p ~/nginx -c nginx.conf;;
+  html) exec cat ~/build/index.html;;
+  dump) exec tar -c -z -f- -C ~/build .;;
   *) exec "$@";;
 esac

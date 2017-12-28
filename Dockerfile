@@ -1,66 +1,70 @@
 FROM mhart/alpine-node:4.4
-RUN apk add --update nginx && \
-    rm -rf /var/cache/apk/* && \
-    mkdir -p /app && \
-    mkdir -p /build && \
-    mkdir -p /tmp/nginx && \
-    mkdir -p /run/nginx && \
-    mkdir -p /var/cache/nginx && \
-    rm -rf /var/lib/nginx/tmp && \
-    ln -sfn /tmp/nginx /var/lib/nginx/tmp
 
 ARG HOME=/app
+
+ENV LANG=C.UTF-8 \
+    TERM=xterm \
+    HOME="${HOME}" \
+    PATH="${HOME}/bin:${PATH}" \
+    PORT=8080
+
+# Install packages
+RUN apk add --update nginx && \
+    rm -rf /var/cache/apk/* && \
+    mkdir -p /app/nginx && \
+    mkdir -p /app/build && \
+    mkdir -p /app/src && \
+    mkdir -p /app/bin
+
+# Do all work from here
+WORKDIR $HOME
+
+# copy src files
+COPY . src
 
 # Override to your own local UID:GID if need be for volume mounting.
 ARG UID=1001
 ARG GID=0
 
-# default to dev environment if none provided
-ENV ENVIRONMENT=dev
+# Create application user and fix perms.
+RUN addgroup -g $GID app 2> /dev/null; \
+    GROUP=$(getent group $GID | cut -d: -f1); \
+    adduser -D -u $UID -G $GROUP -h $HOME -g app -s /bin/sh app && \
+    chown -R $UID:$GID . && \
+    chmod -R g=rwX,o= .
 
-WORKDIR /build
+# Switch to user context
+USER $UID:$GID
 
 # We want to use bower and grunt from the command line,
 # so need to install globally and not via package.json
 RUN npm install --global grunt-cli
 
-COPY package.json /build/package.json
-
 # now install dependencies and build
 RUN npm -q install
-
-COPY . /build
-COPY nginx/nginx.conf /etc/nginx/nginx.conf
-COPY nginx/mime.types /etc/nginx/mime.types
-COPY bin/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Since runtime variables are being defined at build time during preprocess:$env
 # we are going to build all 3 environments upfront and symlink the correct index.html
 # file at runtime (see: bin/entrypoint.sh)
-RUN grunt prod && mv index.html /app/index.html.prod && \
-    grunt env:staging preprocess:staging && mv index.html /app/index.html.staging && \
-    grunt env:dev preprocess:dev && mv index.html /app/index.html.dev && \
-    mv ./plugins /app/plugins && \
-    mv ./css /app/css && \
-    mv ./js /app/js && \
-    mv ./img /app/img
+RUN grunt --base src prod && mv src/index.html build/index.html.prod && \
+    grunt --base src env:staging preprocess:staging && mv src/index.html build/index.html.staging && \
+    grunt --base src env:dev preprocess:dev && mv src/index.html build/index.html.dev && \
+    mv src/plugins build/plugins && \
+    mv src/css build/css && \
+    mv src/js build/js && \
+    mv src/img build/img
 
-WORKDIR $HOME
+# Prepare nginx.
+RUN mkdir -p nginx/logs nginx/run nginx/tmp && \
+    ln -s ~/build nginx && \
+    ln -s /etc/nginx/mime.types nginx && \
+    ln -s /usr/lib/nginx/modules nginx && \
+    mv src/nginx/nginx.conf nginx && \
+    mv src/bin/entrypoint.sh bin && \
+    sed -i "s,\$PORT,$PORT,g" nginx/nginx.conf && \
+    chmod -R g=rwX,o= nginx
 
-# clean up build files
-RUN rm -rf /build
-
-# Create application user and fix perms.
-RUN addgroup -g $GID app 2> /dev/null; \
-    GROUP=$(getent group $GID | cut -d: -f1); \
-    adduser -D -u $UID -G $GROUP -h $HOME -g app -s /bin/sh app && \
-    chown -R $UID:$GID . /run/nginx /tmp/nginx /var/log/nginx /var/cache/nginx /var/lib/nginx && \
-    chmod -R g=rwX,o=rwX . /tmp/nginx /var/log/nginx /var/lib/nginx
-
-# Switch to user
-USER $UID:$GID
-
-EXPOSE 8080
+EXPOSE $PORT
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["run"]
