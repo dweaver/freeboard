@@ -13,7 +13,7 @@ banner () {
 }
 
 # symlink the correct index.html file for environment
-ln -sfn "build/index.html.$ENVIRONMENT" index.html
+ln -sfn "index.html.$ENVIRONMENT" build/index.html
 
 case "${1:-run}" in
   run) banner && exec nginx -p ~/nginx -c nginx.conf;;
