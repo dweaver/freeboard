@@ -16,7 +16,7 @@ ARG UID=1001
 ARG GID=0
 
 # default to dev environment if none provided
-ENV ENVRIRONMENT=dev
+ENV ENVIRONMENT=dev
 
 WORKDIR /build
 
