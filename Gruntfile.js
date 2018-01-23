@@ -8,6 +8,9 @@ module.exports = function(grunt) {
           dev_server: {
             NODE_ENV : 'DEVELOPMENT_SERVER'
           },
+          dev: {
+            NODE_ENV : 'DEVELOPMENT_SERVER'
+          },
           staging: {
             NODE_ENV : 'STAGING'
           },
@@ -21,6 +24,14 @@ module.exports = function(grunt) {
             dest: './index.html'
           },
           dev_server: {
+            src: './index.tmpl.html',
+            dest: './index.html'
+          },
+          dev: {
+            src: './index.tmpl.html',
+            dest: './index.html'
+          },
+          staging: {
             src: './index.tmpl.html',
             dest: './index.html'
           },
